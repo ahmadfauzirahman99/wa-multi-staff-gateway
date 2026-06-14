@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>WA Multi-Staff Gateway — Self-hosted WhatsApp Gateway</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Self-hosted WhatsApp gateway supporting multiple staff accounts with queue, scheduling, webhooks, and real-time dashboard. Built on whatsapp-web.js.">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    html { scroll-behavior: smooth; }
+    .gradient-text { background: linear-gradient(135deg, #22c55e, #16a34a, #4ade80); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+    .card-glow:hover { box-shadow: 0 0 0 1px rgba(34,197,94,0.3), 0 8px 32px rgba(34,197,94,0.08); }
+    .code-block { background: #0d1117; border: 1px solid #30363d; }
+    .hero-glow { background: radial-gradient(ellipse 60% 40% at 50% 0%, rgba(34,197,94,0.12) 0%, transparent 70%); }
+    @keyframes fadeUp { from { opacity:0; transform:translateY(20px); } to { opacity:1; transform:translateY(0); } }
+    .fade-up { animation: fadeUp 0.6s ease forwards; }
+    .step-line::after { content:''; position:absolute; top:50%; left:100%; width:100%; height:1px; background:linear-gradient(90deg,#22c55e,transparent); transform:translateY(-50%); }
+  </style>
+</head>
+<body class="bg-gray-950 text-white antialiased">
+
+  <!-- ══ NAVBAR ════════════════════════════════════════════════ -->
+  <nav class="sticky top-0 z-50 bg-gray-950/90 backdrop-blur border-b border-gray-800">
+    <div class="max-w-6xl mx-auto px-6 h-14 flex items-center justify-between">
+      <div class="flex items-center gap-2">
+        <span class="text-xl">📱</span>
+        <span class="font-bold text-white">WA Gateway</span>
+        <span class="text-xs bg-green-900/50 text-green-400 border border-green-800 px-2 py-0.5 rounded-full ml-1">v1.0</span>
+      </div>
+      <div class="hidden md:flex items-center gap-6 text-sm text-gray-400">
+        <a href="#features" class="hover:text-white transition-colors">Features</a>
+        <a href="#how-it-works" class="hover:text-white transition-colors">How it works</a>
+        <a href="#quickstart" class="hover:text-white transition-colors">Quick start</a>
+        <a href="#api" class="hover:text-white transition-colors">API</a>
+      </div>
+      <div class="flex items-center gap-2">
+        <a href="https://github.com/ahmadfauzirahman99/wa-multi-staff-gateway" target="_blank"
+           class="flex items-center gap-1.5 text-sm text-gray-300 hover:text-white border border-gray-700 hover:border-gray-500 px-3 py-1.5 rounded-lg transition-all">
+          <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"/></svg>
+          GitHub
+        </a>
+        <a href="main-dashboard.html" class="text-sm bg-green-600 hover:bg-green-500 text-white px-3 py-1.5 rounded-lg transition-colors font-medium">Dashboard →</a>
+      </div>
+    </div>
+  </nav>
+
+  <!-- ══ HERO ══════════════════════════════════════════════════ -->
+  <section class="hero-glow pt-20 pb-16 px-6">
+    <div class="max-w-4xl mx-auto text-center">
+      <div class="inline-flex items-center gap-2 text-xs bg-green-950 border border-green-800 text-green-400 px-3 py-1.5 rounded-full mb-6">
+        <span class="w-1.5 h-1.5 rounded-full bg-green-400"></span>
+        Self-hosted · No monthly fees · Open source
+      </div>
+      <h1 class="text-5xl md:text-6xl font-bold mb-6 leading-tight">
+        WhatsApp Gateway<br>
+        <span class="gradient-text">for Multiple Staff</span>
+      </h1>
+      <p class="text-xl text-gray-400 mb-8 max-w-2xl mx-auto leading-relaxed">
+        Connect unlimited WhatsApp accounts, queue messages, schedule delivery, receive webhooks — all from a single Node.js server you control.
+      </p>
+      <div class="flex flex-wrap items-center justify-center gap-3">
+        <a href="#quickstart" class="bg-green-600 hover:bg-green-500 text-white px-6 py-3 rounded-xl font-semibold text-sm transition-all hover:shadow-lg hover:shadow-green-900/50">Get Started →</a>
+        <a href="main-dashboard.html" class="bg-gray-800 hover:bg-gray-700 border border-gray-700 text-white px-6 py-3 rounded-xl font-semibold text-sm transition-colors">Live Dashboard</a>
+        <a href="api-docs.html" class="text-gray-400 hover:text-white px-6 py-3 text-sm transition-colors">API Docs →</a>
+      </div>
+
+      <!-- Stats row -->
+      <div class="flex flex-wrap justify-center gap-8 mt-14 text-sm">
+        <div class="text-center">
+          <p class="text-2xl font-bold text-white">∞</p>
+          <p class="text-gray-500">Staff accounts</p>
+        </div>
+        <div class="w-px bg-gray-800 hidden md:block"></div>
+        <div class="text-center">
+          <p class="text-2xl font-bold text-white">3</p>
+          <p class="text-gray-500">Message types</p>
+        </div>
+        <div class="w-px bg-gray-800 hidden md:block"></div>
+        <div class="text-center">
+          <p class="text-2xl font-bold text-white">16+</p>
+          <p class="text-gray-500">REST endpoints</p>
+        </div>
+        <div class="w-px bg-gray-800 hidden md:block"></div>
+        <div class="text-center">
+          <p class="text-2xl font-bold text-white">0</p>
+          <p class="text-gray-500">Monthly cost</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══ FEATURES ══════════════════════════════════════════════ -->
+  <section id="features" class="py-16 px-6 bg-gray-900/40">
+    <div class="max-w-6xl mx-auto">
+      <div class="text-center mb-12">
+        <h2 class="text-3xl font-bold mb-3">Everything you need</h2>
+        <p class="text-gray-400">A complete WhatsApp messaging infrastructure in one server.</p>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+
+        <!-- Feature: Multi-staff -->
+        <div class="card-glow bg-gray-900 border border-gray-800 rounded-2xl p-6 transition-all">
+          <div class="w-10 h-10 bg-green-900/50 rounded-xl flex items-center justify-center text-xl mb-4">👥</div>
+          <h3 class="font-semibold mb-2">Multi-Staff Support</h3>
+          <p class="text-sm text-gray-400 leading-relaxed">Each staff member gets an isolated WhatsApp session identified by a free-form <code class="text-green-400 text-xs bg-gray-800 px-1 rounded">staff_id</code>. No limit on number of accounts.</p>
+        </div>
+
+        <!-- Feature: Queue -->
+        <div class="card-glow bg-gray-900 border border-gray-800 rounded-2xl p-6 transition-all">
+          <div class="w-10 h-10 bg-blue-900/50 rounded-xl flex items-center justify-center text-xl mb-4">📋</div>
+          <h3 class="font-semibold mb-2">Message Queue</h3>
+          <p class="text-sm text-gray-400 leading-relaxed">Insert messages into MySQL and deliver via cron trigger. Supports text, PDF, and media files. Auto-retry up to configurable max attempts.</p>
+        </div>
+
+        <!-- Feature: Scheduled -->
+        <div class="card-glow bg-gray-900 border border-gray-800 rounded-2xl p-6 transition-all">
+          <div class="w-10 h-10 bg-purple-900/50 rounded-xl flex items-center justify-center text-xl mb-4">🗓️</div>
+          <h3 class="font-semibold mb-2">Scheduled Messages</h3>
+          <p class="text-sm text-gray-400 leading-relaxed">Set <code class="text-green-400 text-xs bg-gray-800 px-1 rounded">scheduled_at</code> on any queued message. The cron processor delivers only when the time arrives.</p>
+        </div>
+
+        <!-- Feature: Webhook -->
+        <div class="card-glow bg-gray-900 border border-gray-800 rounded-2xl p-6 transition-all">
+          <div class="w-10 h-10 bg-yellow-900/50 rounded-xl flex items-center justify-center text-xl mb-4">🔗</div>
+          <h3 class="font-semibold mb-2">Outgoing Webhooks</h3>
+          <p class="text-sm text-gray-400 leading-relaxed">Set <code class="text-green-400 text-xs bg-gray-800 px-1 rounded">WEBHOOK_URL</code> to receive incoming messages and delivery ACKs (sent / delivered / read) pushed to your system instantly.</p>
+        </div>
+
+        <!-- Feature: Delivery tracking -->
+        <div class="card-glow bg-gray-900 border border-gray-800 rounded-2xl p-6 transition-all">
+          <div class="w-10 h-10 bg-cyan-900/50 rounded-xl flex items-center justify-center text-xl mb-4">✅</div>
+          <h3 class="font-semibold mb-2">Delivery Tracking</h3>
+          <p class="text-sm text-gray-400 leading-relaxed">Real-time ACK events update each message status in DB: <span class="text-green-400 text-xs">sent → delivered → read</span>. Queryable via API or visible in dashboard.</p>
+        </div>
+
+        <!-- Feature: Real-time dashboard -->
+        <div class="card-glow bg-gray-900 border border-gray-800 rounded-2xl p-6 transition-all">
+          <div class="w-10 h-10 bg-orange-900/50 rounded-xl flex items-center justify-center text-xl mb-4">📊</div>
+          <h3 class="font-semibold mb-2">Real-time Dashboard</h3>
+          <p class="text-sm text-gray-400 leading-relaxed">Socket.IO-powered unified dashboard: stats, live feed, send messages, manage queue, view incoming, edit templates — all in one page.</p>
+        </div>
+
+        <!-- Feature: API auth -->
+        <div class="card-glow bg-gray-900 border border-gray-800 rounded-2xl p-6 transition-all">
+          <div class="w-10 h-10 bg-red-900/50 rounded-xl flex items-center justify-center text-xl mb-4">🔐</div>
+          <h3 class="font-semibold mb-2">API Key Auth</h3>
+          <p class="text-sm text-gray-400 leading-relaxed">Optional API key protection on all <code class="text-green-400 text-xs bg-gray-800 px-1 rounded">/api/*</code> endpoints via <code class="text-xs bg-gray-800 px-1 rounded text-gray-300">x-api-key</code> header, Bearer token, or query param.</p>
+        </div>
+
+        <!-- Feature: Rate limiting -->
+        <div class="card-glow bg-gray-900 border border-gray-800 rounded-2xl p-6 transition-all">
+          <div class="w-10 h-10 bg-pink-900/50 rounded-xl flex items-center justify-center text-xl mb-4">🛡️</div>
+          <h3 class="font-semibold mb-2">Rate Limiting</h3>
+          <p class="text-sm text-gray-400 leading-relaxed">30 req/min limit on direct-send endpoints. Configurable random delay between queue messages to mimic human behavior and avoid WA bans.</p>
+        </div>
+
+        <!-- Feature: Templates -->
+        <div class="card-glow bg-gray-900 border border-gray-800 rounded-2xl p-6 transition-all">
+          <div class="w-10 h-10 bg-teal-900/50 rounded-xl flex items-center justify-center text-xl mb-4">📝</div>
+          <h3 class="font-semibold mb-2">Message Templates</h3>
+          <p class="text-sm text-gray-400 leading-relaxed">Store reusable message templates in DB. Retrieve via API or select from the dashboard to fill forms instantly. Supports create, update, delete.</p>
+        </div>
+
+        <!-- Feature: Session persistence -->
+        <div class="card-glow bg-gray-900 border border-gray-800 rounded-2xl p-6 transition-all">
+          <div class="w-10 h-10 bg-indigo-900/50 rounded-xl flex items-center justify-center text-xl mb-4">💾</div>
+          <h3 class="font-semibold mb-2">Session Persistence</h3>
+          <p class="text-sm text-gray-400 leading-relaxed">LocalAuth saves sessions to disk. On server restart, all staff sessions reconnect automatically — no re-scan QR needed.</p>
+        </div>
+
+        <!-- Feature: Broadcast -->
+        <div class="card-glow bg-gray-900 border border-gray-800 rounded-2xl p-6 transition-all">
+          <div class="w-10 h-10 bg-lime-900/50 rounded-xl flex items-center justify-center text-xl mb-4">📢</div>
+          <h3 class="font-semibold mb-2">Broadcast</h3>
+          <p class="text-sm text-gray-400 leading-relaxed">Send one message to hundreds of numbers in a single API call. Automatic delay between sends, per-number success/fail result returned.</p>
+        </div>
+
+        <!-- Feature: Health check -->
+        <div class="card-glow bg-gray-900 border border-gray-800 rounded-2xl p-6 transition-all">
+          <div class="w-10 h-10 bg-gray-700/80 rounded-xl flex items-center justify-center text-xl mb-4">❤️</div>
+          <h3 class="font-semibold mb-2">Health Check</h3>
+          <p class="text-sm text-gray-400 leading-relaxed">Public <code class="text-green-400 text-xs bg-gray-800 px-1 rounded">/api/health</code> endpoint returns DB status, uptime, and active client count. Ready for uptime monitors and load balancers.</p>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- ══ HOW IT WORKS ══════════════════════════════════════════ -->
+  <section id="how-it-works" class="py-16 px-6">
+    <div class="max-w-5xl mx-auto">
+      <div class="text-center mb-12">
+        <h2 class="text-3xl font-bold mb-3">How it works</h2>
+        <p class="text-gray-400">Two send modes — immediate or queued</p>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-12">
+        <!-- Immediate mode -->
+        <div class="bg-gray-900 border border-gray-800 rounded-2xl p-6">
+          <div class="flex items-center gap-2 mb-4">
+            <span class="w-2 h-2 rounded-full bg-green-400"></span>
+            <h3 class="font-semibold">Immediate Send</h3>
+          </div>
+          <div class="space-y-3 text-sm">
+            <div class="flex gap-3">
+              <span class="w-6 h-6 rounded-full bg-green-900 text-green-400 text-xs flex items-center justify-center flex-shrink-0 font-bold">1</span>
+              <p class="text-gray-300">POST to <code class="text-green-400">/api/send-text</code> with staff_id + phone + message</p>
+            </div>
+            <div class="flex gap-3">
+              <span class="w-6 h-6 rounded-full bg-green-900 text-green-400 text-xs flex items-center justify-center flex-shrink-0 font-bold">2</span>
+              <p class="text-gray-300">Server validates number is registered on WhatsApp</p>
+            </div>
+            <div class="flex gap-3">
+              <span class="w-6 h-6 rounded-full bg-green-900 text-green-400 text-xs flex items-center justify-center flex-shrink-0 font-bold">3</span>
+              <p class="text-gray-300">Message sent instantly, DB updated, <code class="text-green-400">messageId</code> returned</p>
+            </div>
+            <div class="flex gap-3">
+              <span class="w-6 h-6 rounded-full bg-green-900 text-green-400 text-xs flex items-center justify-center flex-shrink-0 font-bold">4</span>
+              <p class="text-gray-300">ACK events update status to delivered → read automatically</p>
+            </div>
+          </div>
+          <p class="text-xs text-gray-600 mt-4">⚠ Requires WA client to be connected</p>
+        </div>
+
+        <!-- Queue mode -->
+        <div class="bg-gray-900 border border-gray-800 rounded-2xl p-6">
+          <div class="flex items-center gap-2 mb-4">
+            <span class="w-2 h-2 rounded-full bg-blue-400"></span>
+            <h3 class="font-semibold">Queue Mode</h3>
+          </div>
+          <div class="space-y-3 text-sm">
+            <div class="flex gap-3">
+              <span class="w-6 h-6 rounded-full bg-blue-900 text-blue-400 text-xs flex items-center justify-center flex-shrink-0 font-bold">1</span>
+              <p class="text-gray-300">POST to <code class="text-green-400">/api/queue-text</code> (or queue-pdf / queue-media)</p>
+            </div>
+            <div class="flex gap-3">
+              <span class="w-6 h-6 rounded-full bg-blue-900 text-blue-400 text-xs flex items-center justify-center flex-shrink-0 font-bold">2</span>
+              <p class="text-gray-300">Row inserted to <code class="text-green-400">wa_outgoing</code> with <code class="text-green-400">status=pending</code></p>
+            </div>
+            <div class="flex gap-3">
+              <span class="w-6 h-6 rounded-full bg-blue-900 text-blue-400 text-xs flex items-center justify-center flex-shrink-0 font-bold">3</span>
+              <p class="text-gray-300">Cron calls <code class="text-green-400">/api/run-cron?token=SECRET</code> every N minutes</p>
+            </div>
+            <div class="flex gap-3">
+              <span class="w-6 h-6 rounded-full bg-blue-900 text-blue-400 text-xs flex items-center justify-center flex-shrink-0 font-bold">4</span>
+              <p class="text-gray-300">Processor sends pending messages, updates status, retries on failure</p>
+            </div>
+          </div>
+          <p class="text-xs text-gray-600 mt-4">✓ Works even if client connects after queueing</p>
+        </div>
+      </div>
+
+      <!-- Architecture diagram -->
+      <div class="bg-gray-900 border border-gray-800 rounded-2xl p-8">
+        <h3 class="text-sm font-semibold text-gray-400 mb-6 text-center uppercase tracking-wider">Architecture</h3>
+        <div class="flex flex-wrap justify-center items-center gap-2 text-sm font-mono">
+          <div class="bg-gray-800 border border-gray-700 rounded-xl px-4 py-3 text-center">
+            <p class="text-xs text-gray-500 mb-1">Your App</p>
+            <p class="text-white font-semibold">REST / Cron</p>
+          </div>
+          <div class="text-green-500 text-lg">→</div>
+          <div class="bg-green-950 border border-green-800 rounded-xl px-4 py-3 text-center">
+            <p class="text-xs text-green-400 mb-1">This Server</p>
+            <p class="text-white font-semibold">Express + Socket.IO</p>
+          </div>
+          <div class="text-green-500 text-lg">⇄</div>
+          <div class="bg-gray-800 border border-gray-700 rounded-xl px-4 py-3 text-center">
+            <p class="text-xs text-gray-500 mb-1">Sessions</p>
+            <p class="text-white font-semibold">whatsapp-web.js</p>
+          </div>
+          <div class="text-green-500 text-lg">→</div>
+          <div class="bg-gray-800 border border-gray-700 rounded-xl px-4 py-3 text-center">
+            <p class="text-xs text-gray-500 mb-1">Delivery</p>
+            <p class="text-white font-semibold">WhatsApp Web</p>
+          </div>
+        </div>
+        <div class="flex justify-center mt-4">
+          <div class="text-gray-500 text-2xl">↓</div>
+        </div>
+        <div class="flex justify-center mt-2 gap-4">
+          <div class="bg-gray-800 border border-gray-700 rounded-xl px-4 py-3 text-center">
+            <p class="text-xs text-gray-500 mb-1">Persistence</p>
+            <p class="text-white font-semibold">MySQL</p>
+          </div>
+          <div class="bg-gray-800 border border-gray-700 rounded-xl px-4 py-3 text-center">
+            <p class="text-xs text-gray-500 mb-1">Real-time</p>
+            <p class="text-white font-semibold">Socket.IO → Browser</p>
+          </div>
+          <div class="bg-gray-800 border border-gray-700 rounded-xl px-4 py-3 text-center">
+            <p class="text-xs text-gray-500 mb-1">Push</p>
+            <p class="text-white font-semibold">Webhook → Your URL</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══ QUICK START ════════════════════════════════════════════ -->
+  <section id="quickstart" class="py-16 px-6 bg-gray-900/40">
+    <div class="max-w-3xl mx-auto">
+      <div class="text-center mb-12">
+        <h2 class="text-3xl font-bold mb-3">Quick Start</h2>
+        <p class="text-gray-400">Running in 4 steps</p>
+      </div>
+
+      <div class="space-y-4">
+
+        <div class="bg-gray-900 border border-gray-800 rounded-2xl p-6">
+          <div class="flex items-center gap-3 mb-3">
+            <span class="w-7 h-7 rounded-full bg-green-600 text-white text-xs flex items-center justify-center font-bold">1</span>
+            <h3 class="font-semibold">Clone & install</h3>
+          </div>
+          <pre class="code-block rounded-xl p-4 text-sm text-gray-300 overflow-x-auto"><code>git clone https://github.com/ahmadfauzirahman99/wa-multi-staff-gateway.git
+cd wa-multi-staff-gateway
+npm install</code></pre>
+        </div>
+
+        <div class="bg-gray-900 border border-gray-800 rounded-2xl p-6">
+          <div class="flex items-center gap-3 mb-3">
+            <span class="w-7 h-7 rounded-full bg-green-600 text-white text-xs flex items-center justify-center font-bold">2</span>
+            <h3 class="font-semibold">Configure environment</h3>
+          </div>
+          <pre class="code-block rounded-xl p-4 text-sm text-gray-300 overflow-x-auto"><code>cp .env.example .env
+# Edit .env — set DB credentials and CRON_TOKEN</code></pre>
+        </div>
+
+        <div class="bg-gray-900 border border-gray-800 rounded-2xl p-6">
+          <div class="flex items-center gap-3 mb-3">
+            <span class="w-7 h-7 rounded-full bg-green-600 text-white text-xs flex items-center justify-center font-bold">3</span>
+            <h3 class="font-semibold">Create database</h3>
+          </div>
+          <pre class="code-block rounded-xl p-4 text-sm text-gray-300 overflow-x-auto"><code>mysql -u root -p -e "CREATE DATABASE simrs_wa CHARACTER SET utf8mb4"
+mysql -u root -p simrs_wa &lt; schema-update.sql</code></pre>
+        </div>
+
+        <div class="bg-gray-900 border border-gray-800 rounded-2xl p-6">
+          <div class="flex items-center gap-3 mb-3">
+            <span class="w-7 h-7 rounded-full bg-green-600 text-white text-xs flex items-center justify-center font-bold">4</span>
+            <h3 class="font-semibold">Start server & connect</h3>
+          </div>
+          <pre class="code-block rounded-xl p-4 text-sm text-gray-300 overflow-x-auto"><code>node server-new.js
+
+# Open in browser:
+# http://localhost:3030/main-dashboard.html  — Dashboard
+# http://localhost:3030/qr-scanner.html      — Connect WhatsApp</code></pre>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- ══ API OVERVIEW ══════════════════════════════════════════ -->
+  <section id="api" class="py-16 px-6">
+    <div class="max-w-5xl mx-auto">
+      <div class="text-center mb-12">
+        <h2 class="text-3xl font-bold mb-3">API Overview</h2>
+        <p class="text-gray-400">Simple REST API. Full interactive docs at <a href="api-docs.html" class="text-green-400 hover:text-green-300">/api-docs.html</a></p>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+
+        <div class="bg-gray-900 border border-gray-800 rounded-2xl p-6">
+          <h3 class="font-semibold text-green-400 mb-4 text-sm">Immediate Send</h3>
+          <div class="space-y-2 text-xs font-mono">
+            <div class="flex gap-2 items-start">
+              <span class="bg-green-900/60 text-green-400 px-1.5 py-0.5 rounded text-xs flex-shrink-0">POST</span>
+              <span class="text-gray-300">/api/send-text</span>
+            </div>
+            <div class="flex gap-2 items-start">
+              <span class="bg-green-900/60 text-green-400 px-1.5 py-0.5 rounded text-xs flex-shrink-0">POST</span>
+              <span class="text-gray-300">/api/send-media</span>
+            </div>
+            <div class="flex gap-2 items-start">
+              <span class="bg-green-900/60 text-green-400 px-1.5 py-0.5 rounded text-xs flex-shrink-0">POST</span>
+              <span class="text-gray-300">/api/broadcast-text</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="bg-gray-900 border border-gray-800 rounded-2xl p-6">
+          <h3 class="font-semibold text-blue-400 mb-4 text-sm">Queue</h3>
+          <div class="space-y-2 text-xs font-mono">
+            <div class="flex gap-2 items-start">
+              <span class="bg-green-900/60 text-green-400 px-1.5 py-0.5 rounded text-xs flex-shrink-0">POST</span>
+              <span class="text-gray-300">/api/queue-text</span>
+            </div>
+            <div class="flex gap-2 items-start">
+              <span class="bg-green-900/60 text-green-400 px-1.5 py-0.5 rounded text-xs flex-shrink-0">POST</span>
+              <span class="text-gray-300">/api/queue-pdf</span>
+            </div>
+            <div class="flex gap-2 items-start">
+              <span class="bg-green-900/60 text-green-400 px-1.5 py-0.5 rounded text-xs flex-shrink-0">POST</span>
+              <span class="text-gray-300">/api/queue-media</span>
+            </div>
+            <div class="flex gap-2 items-start">
+              <span class="bg-blue-900/60 text-blue-400 px-1.5 py-0.5 rounded text-xs flex-shrink-0">GET</span>
+              <span class="text-gray-300">/api/run-cron?token=</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="bg-gray-900 border border-gray-800 rounded-2xl p-6">
+          <h3 class="font-semibold text-yellow-400 mb-4 text-sm">Messages & Status</h3>
+          <div class="space-y-2 text-xs font-mono">
+            <div class="flex gap-2 items-start">
+              <span class="bg-blue-900/60 text-blue-400 px-1.5 py-0.5 rounded text-xs flex-shrink-0">GET</span>
+              <span class="text-gray-300">/api/outgoing?page=&limit=</span>
+            </div>
+            <div class="flex gap-2 items-start">
+              <span class="bg-blue-900/60 text-blue-400 px-1.5 py-0.5 rounded text-xs flex-shrink-0">GET</span>
+              <span class="text-gray-300">/api/incoming?page=&limit=</span>
+            </div>
+            <div class="flex gap-2 items-start">
+              <span class="bg-blue-900/60 text-blue-400 px-1.5 py-0.5 rounded text-xs flex-shrink-0">GET</span>
+              <span class="text-gray-300">/api/queue/stats</span>
+            </div>
+            <div class="flex gap-2 items-start">
+              <span class="bg-green-900/60 text-green-400 px-1.5 py-0.5 rounded text-xs flex-shrink-0">POST</span>
+              <span class="text-gray-300">/api/queue/reset-failed</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="bg-gray-900 border border-gray-800 rounded-2xl p-6">
+          <h3 class="font-semibold text-gray-300 mb-4 text-sm">Utility</h3>
+          <div class="space-y-2 text-xs font-mono">
+            <div class="flex gap-2 items-start">
+              <span class="bg-blue-900/60 text-blue-400 px-1.5 py-0.5 rounded text-xs flex-shrink-0">GET</span>
+              <span class="text-gray-300">/api/health</span>
+              <span class="text-gray-600 text-xs ml-1">(no auth)</span>
+            </div>
+            <div class="flex gap-2 items-start">
+              <span class="bg-blue-900/60 text-blue-400 px-1.5 py-0.5 rounded text-xs flex-shrink-0">GET</span>
+              <span class="text-gray-300">/api/clients</span>
+            </div>
+            <div class="flex gap-2 items-start">
+              <span class="bg-green-900/60 text-green-400 px-1.5 py-0.5 rounded text-xs flex-shrink-0">POST</span>
+              <span class="text-gray-300">/api/logout</span>
+            </div>
+            <div class="flex gap-2 items-start">
+              <span class="bg-blue-900/60 text-blue-400 px-1.5 py-0.5 rounded text-xs flex-shrink-0">GET</span>
+              <span class="text-gray-300">/api/templates</span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Code example -->
+      <div class="bg-gray-900 border border-gray-800 rounded-2xl p-6">
+        <h3 class="text-sm font-semibold text-gray-300 mb-4">Example: Queue a message</h3>
+        <pre class="code-block rounded-xl p-4 text-sm text-gray-300 overflow-x-auto"><code>curl -X POST http://localhost:3030/api/queue-text \
+  -H "Content-Type: application/json" \
+  -H "x-api-key: your-api-key" \
+  -d '{
+    "staff_id": "staff1",
+    "wa_number": "628123456789",
+    "message": "Hello from WA Gateway!",
+    "scheduled_at": "2025-12-31 08:00:00"
+  }'
+
+# Response:
+# { "success": true, "id": 42 }</code></pre>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══ TECH STACK ═════════════════════════════════════════════ -->
+  <section class="py-12 px-6 bg-gray-900/40">
+    <div class="max-w-3xl mx-auto text-center">
+      <h2 class="text-xl font-semibold mb-8 text-gray-300">Built with</h2>
+      <div class="flex flex-wrap justify-center gap-3">
+        <span class="bg-gray-800 border border-gray-700 text-gray-300 px-4 py-2 rounded-xl text-sm font-medium">Node.js 18+</span>
+        <span class="bg-gray-800 border border-gray-700 text-gray-300 px-4 py-2 rounded-xl text-sm font-medium">Express 5</span>
+        <span class="bg-gray-800 border border-gray-700 text-gray-300 px-4 py-2 rounded-xl text-sm font-medium">whatsapp-web.js</span>
+        <span class="bg-gray-800 border border-gray-700 text-gray-300 px-4 py-2 rounded-xl text-sm font-medium">Puppeteer</span>
+        <span class="bg-gray-800 border border-gray-700 text-gray-300 px-4 py-2 rounded-xl text-sm font-medium">Socket.IO 4</span>
+        <span class="bg-gray-800 border border-gray-700 text-gray-300 px-4 py-2 rounded-xl text-sm font-medium">MySQL 2</span>
+        <span class="bg-gray-800 border border-gray-700 text-gray-300 px-4 py-2 rounded-xl text-sm font-medium">dotenv</span>
+        <span class="bg-gray-800 border border-gray-700 text-gray-300 px-4 py-2 rounded-xl text-sm font-medium">express-rate-limit</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══ CTA ════════════════════════════════════════════════════ -->
+  <section class="py-20 px-6">
+    <div class="max-w-2xl mx-auto text-center">
+      <h2 class="text-3xl font-bold mb-4">Ready to deploy?</h2>
+      <p class="text-gray-400 mb-8">Self-hosted, open source, free forever. Your data stays on your server.</p>
+      <div class="flex flex-wrap justify-center gap-3">
+        <a href="https://github.com/ahmadfauzirahman99/wa-multi-staff-gateway" target="_blank"
+           class="flex items-center gap-2 bg-white text-gray-900 hover:bg-gray-100 px-6 py-3 rounded-xl font-semibold text-sm transition-colors">
+          <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"/></svg>
+          View on GitHub
+        </a>
+        <a href="#quickstart" class="bg-green-600 hover:bg-green-500 text-white px-6 py-3 rounded-xl font-semibold text-sm transition-colors">Quick Start →</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══ FOOTER ═════════════════════════════════════════════════ -->
+  <footer class="border-t border-gray-800 py-8 px-6">
+    <div class="max-w-6xl mx-auto flex flex-wrap justify-between items-center gap-4 text-sm text-gray-500">
+      <div class="flex items-center gap-2">
+        <span>📱</span>
+        <span>WA Multi-Staff Gateway</span>
+        <span class="text-gray-700">·</span>
+        <span>MIT License</span>
+      </div>
+      <div class="flex gap-4">
+        <a href="main-dashboard.html" class="hover:text-gray-300 transition-colors">Dashboard</a>
+        <a href="api-docs.html"       class="hover:text-gray-300 transition-colors">API Docs</a>
+        <a href="README.md"           class="hover:text-gray-300 transition-colors">README</a>
+        <a href="https://github.com/ahmadfauzirahman99/wa-multi-staff-gateway" target="_blank" class="hover:text-gray-300 transition-colors">GitHub</a>
+      </div>
+    </div>
+  </footer>
+
+</body>
+</html>

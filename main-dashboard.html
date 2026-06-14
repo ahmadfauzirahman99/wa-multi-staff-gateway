@@ -1,0 +1,815 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <title>WA Gateway — Dashboard</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="/socket.io/socket.io.js"></script>
+  <style>
+    [x-cloak] { display: none; }
+    .hover\:bg-gray-750:hover { background-color: #1f2937; }
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #1f2937; }
+    ::-webkit-scrollbar-thumb { background: #4b5563; border-radius: 3px; }
+  </style>
+</head>
+<body class="bg-gray-900 text-white flex h-screen overflow-hidden">
+
+  <!-- ══ SIDEBAR ══════════════════════════════════════════════ -->
+  <aside class="w-60 bg-gray-800 flex flex-col flex-shrink-0 border-r border-gray-700">
+    <div class="p-4 border-b border-gray-700">
+      <div class="flex items-center gap-2">
+        <span class="text-2xl">📱</span>
+        <div>
+          <h1 class="text-sm font-bold text-green-400 leading-tight">WA Gateway</h1>
+          <p class="text-xs text-gray-500">Multi-Staff</p>
+        </div>
+      </div>
+    </div>
+
+    <nav class="flex-1 p-3 space-y-0.5 overflow-y-auto">
+      <button onclick="showSection('overview')"   id="nav-overview"   class="nav-btn w-full text-left px-3 py-2 rounded-lg text-sm flex items-center gap-2 text-gray-300 hover:bg-gray-700 hover:text-white">📊 Overview</button>
+      <button onclick="showSection('staff')"      id="nav-staff"      class="nav-btn w-full text-left px-3 py-2 rounded-lg text-sm flex items-center gap-2 text-gray-300 hover:bg-gray-700 hover:text-white">👥 Staff</button>
+      <button onclick="showSection('send')"       id="nav-send"       class="nav-btn w-full text-left px-3 py-2 rounded-lg text-sm flex items-center gap-2 text-gray-300 hover:bg-gray-700 hover:text-white">📤 Kirim Pesan</button>
+      <button onclick="showSection('queue')"      id="nav-queue"      class="nav-btn w-full text-left px-3 py-2 rounded-lg text-sm flex items-center gap-2 text-gray-300 hover:bg-gray-700 hover:text-white">📋 Queue</button>
+      <button onclick="showSection('incoming')"   id="nav-incoming"   class="nav-btn w-full text-left px-3 py-2 rounded-lg text-sm flex items-center gap-2 text-gray-300 hover:bg-gray-700 hover:text-white">📥 Pesan Masuk</button>
+      <button onclick="showSection('templates')"  id="nav-templates"  class="nav-btn w-full text-left px-3 py-2 rounded-lg text-sm flex items-center gap-2 text-gray-300 hover:bg-gray-700 hover:text-white">📝 Template</button>
+    </nav>
+
+    <!-- Online staff list -->
+    <div class="p-3 border-t border-gray-700">
+      <p class="text-xs text-gray-500 mb-2 font-medium uppercase tracking-wide">Staff Online</p>
+      <div id="sidebar-clients" class="space-y-1 text-xs text-gray-400">
+        <span class="text-gray-600">Memuat...</span>
+      </div>
+    </div>
+
+    <!-- Health indicator -->
+    <div class="p-3 border-t border-gray-700 flex items-center gap-2 text-xs">
+      <span id="health-dot" class="w-2 h-2 rounded-full bg-gray-500"></span>
+      <span id="health-label" class="text-gray-500">Checking...</span>
+    </div>
+  </aside>
+
+  <!-- ══ MAIN CONTENT ══════════════════════════════════════════ -->
+  <main class="flex-1 overflow-y-auto bg-gray-900">
+
+    <!-- ── OVERVIEW ───────────────────────────────────────────── -->
+    <section id="section-overview" class="p-6">
+      <div class="flex justify-between items-center mb-6">
+        <h2 class="text-xl font-bold">Overview</h2>
+        <button onclick="loadOverview()" class="text-xs text-gray-400 hover:text-white flex items-center gap-1">↺ Refresh</button>
+      </div>
+
+      <!-- Stats cards -->
+      <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <div class="bg-gray-800 rounded-xl p-4 border border-gray-700">
+          <p class="text-xs text-gray-400 mb-1">Total Terkirim</p>
+          <p id="stat-sent" class="text-3xl font-bold text-green-400">—</p>
+          <p class="text-xs text-gray-600 mt-1">sent + delivered + read</p>
+        </div>
+        <div class="bg-gray-800 rounded-xl p-4 border border-gray-700">
+          <p class="text-xs text-gray-400 mb-1">Pending</p>
+          <p id="stat-pending" class="text-3xl font-bold text-yellow-400">—</p>
+          <p class="text-xs text-gray-600 mt-1">menunggu dikirim</p>
+        </div>
+        <div class="bg-gray-800 rounded-xl p-4 border border-gray-700">
+          <p class="text-xs text-gray-400 mb-1">Gagal</p>
+          <p id="stat-failed" class="text-3xl font-bold text-red-400">—</p>
+          <p class="text-xs text-gray-600 mt-1">failed + not_registered</p>
+        </div>
+        <div class="bg-gray-800 rounded-xl p-4 border border-gray-700">
+          <p class="text-xs text-gray-400 mb-1">Staff Aktif</p>
+          <p id="stat-clients" class="text-3xl font-bold text-blue-400">—</p>
+          <p class="text-xs text-gray-600 mt-1">session connected</p>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- Hourly chart -->
+        <div class="bg-gray-800 rounded-xl p-4 border border-gray-700">
+          <h3 class="text-sm font-semibold text-gray-300 mb-4">Pesan Keluar — 200 terbaru per jam</h3>
+          <canvas id="chart-hourly" height="160"></canvas>
+        </div>
+
+        <!-- Live feed -->
+        <div class="bg-gray-800 rounded-xl p-4 border border-gray-700 flex flex-col">
+          <div class="flex justify-between items-center mb-3">
+            <h3 class="text-sm font-semibold text-gray-300">Live Feed</h3>
+            <span class="w-2 h-2 rounded-full bg-green-400 animate-pulse"></span>
+          </div>
+          <div id="live-feed" class="flex-1 overflow-y-auto space-y-0.5 max-h-48 text-xs font-mono"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── STAFF ──────────────────────────────────────────────── -->
+    <section id="section-staff" class="p-6 hidden">
+      <div class="flex justify-between items-center mb-6">
+        <h2 class="text-xl font-bold">Staff & Koneksi</h2>
+        <div class="flex gap-2">
+          <button onclick="loadStaff()" class="text-xs bg-gray-700 hover:bg-gray-600 px-3 py-1.5 rounded-lg">↺ Refresh</button>
+          <button onclick="addStaff()" class="bg-green-600 hover:bg-green-700 px-4 py-2 rounded-lg text-sm font-medium">+ Tambah Staff</button>
+        </div>
+      </div>
+      <div id="staff-grid" class="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4"></div>
+    </section>
+
+    <!-- ── SEND ───────────────────────────────────────────────── -->
+    <section id="section-send" class="p-6 hidden">
+      <h2 class="text-xl font-bold mb-6">Kirim Pesan</h2>
+
+      <!-- Tabs -->
+      <div class="flex gap-1 mb-6 bg-gray-800 p-1 rounded-lg w-fit border border-gray-700">
+        <button onclick="showSendTab('text')"      class="send-tab px-4 py-1.5 rounded-md text-sm font-medium bg-green-600 text-white">Teks</button>
+        <button onclick="showSendTab('media')"     class="send-tab px-4 py-1.5 rounded-md text-sm font-medium text-gray-400 hover:text-white">Media/File</button>
+        <button onclick="showSendTab('broadcast')" class="send-tab px-4 py-1.5 rounded-md text-sm font-medium text-gray-400 hover:text-white">Broadcast</button>
+        <button onclick="showSendTab('queuetxt')"  class="send-tab px-4 py-1.5 rounded-md text-sm font-medium text-gray-400 hover:text-white">Queue Text</button>
+      </div>
+
+      <!-- Text -->
+      <div id="send-tab-text" class="bg-gray-800 rounded-xl p-6 max-w-lg border border-gray-700">
+        <div class="space-y-4">
+          <div>
+            <label class="text-xs text-gray-400 font-medium">Staff ID</label>
+            <select id="send-text-staff" class="mt-1 w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-green-500"></select>
+          </div>
+          <div>
+            <label class="text-xs text-gray-400 font-medium">Nomor HP</label>
+            <input id="send-text-phone" type="text" placeholder="08123456789" class="mt-1 w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-green-500">
+          </div>
+          <div>
+            <label class="text-xs text-gray-400 font-medium">Pesan</label>
+            <textarea id="send-text-msg" rows="4" class="mt-1 w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-green-500 resize-none" placeholder="Ketik pesan..."></textarea>
+          </div>
+          <div class="flex gap-2">
+            <button onclick="sendText()" class="flex-1 bg-green-600 hover:bg-green-700 py-2 rounded-lg text-sm font-medium transition-colors">Kirim Sekarang</button>
+            <button onclick="openTemplatePicker('send-text-msg')" class="bg-gray-600 hover:bg-gray-500 px-4 py-2 rounded-lg text-sm transition-colors" title="Pilih template">📝</button>
+          </div>
+          <div id="send-text-result" class="text-xs min-h-[1.25rem]"></div>
+        </div>
+      </div>
+
+      <!-- Media -->
+      <div id="send-tab-media" class="bg-gray-800 rounded-xl p-6 max-w-lg border border-gray-700 hidden">
+        <div class="space-y-4">
+          <div>
+            <label class="text-xs text-gray-400 font-medium">Staff ID</label>
+            <select id="send-media-staff" class="mt-1 w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-green-500"></select>
+          </div>
+          <div>
+            <label class="text-xs text-gray-400 font-medium">Nomor HP</label>
+            <input id="send-media-phone" type="text" placeholder="08123456789" class="mt-1 w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-green-500">
+          </div>
+          <div>
+            <label class="text-xs text-gray-400 font-medium">File</label>
+            <input id="send-media-file" type="file" class="mt-1 w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm file:bg-gray-600 file:border-0 file:text-white file:text-xs file:px-3 file:py-1 file:rounded file:mr-2">
+          </div>
+          <div>
+            <label class="text-xs text-gray-400 font-medium">Caption (opsional)</label>
+            <input id="send-media-caption" type="text" class="mt-1 w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-green-500">
+          </div>
+          <button onclick="sendMedia()" class="w-full bg-green-600 hover:bg-green-700 py-2 rounded-lg text-sm font-medium transition-colors">Kirim File</button>
+          <div id="send-media-result" class="text-xs min-h-[1.25rem]"></div>
+        </div>
+      </div>
+
+      <!-- Broadcast -->
+      <div id="send-tab-broadcast" class="bg-gray-800 rounded-xl p-6 max-w-lg border border-gray-700 hidden">
+        <div class="space-y-4">
+          <div>
+            <label class="text-xs text-gray-400 font-medium">Staff ID</label>
+            <select id="send-bc-staff" class="mt-1 w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-green-500"></select>
+          </div>
+          <div>
+            <label class="text-xs text-gray-400 font-medium">Nomor HP — satu per baris</label>
+            <textarea id="send-bc-phones" rows="5" class="mt-1 w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:border-green-500 resize-none" placeholder="08111111111&#10;08222222222&#10;08333333333"></textarea>
+            <p id="bc-count" class="text-xs text-gray-500 mt-1">0 nomor</p>
+          </div>
+          <div>
+            <label class="text-xs text-gray-400 font-medium">Pesan</label>
+            <textarea id="send-bc-msg" rows="3" class="mt-1 w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-green-500 resize-none"></textarea>
+          </div>
+          <button onclick="sendBroadcast()" class="w-full bg-green-600 hover:bg-green-700 py-2 rounded-lg text-sm font-medium transition-colors">Mulai Broadcast</button>
+          <div id="send-bc-result" class="text-xs min-h-[1.25rem]"></div>
+        </div>
+      </div>
+
+      <!-- Queue text -->
+      <div id="send-tab-queuetxt" class="bg-gray-800 rounded-xl p-6 max-w-lg border border-gray-700 hidden">
+        <p class="text-xs text-gray-400 mb-4">Pesan masuk antrian — dikirim saat cron dijalankan.</p>
+        <div class="space-y-4">
+          <div>
+            <label class="text-xs text-gray-400 font-medium">Staff ID</label>
+            <select id="queue-text-staff" class="mt-1 w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-green-500"></select>
+          </div>
+          <div>
+            <label class="text-xs text-gray-400 font-medium">Nomor HP</label>
+            <input id="queue-text-phone" type="text" placeholder="08123456789" class="mt-1 w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-green-500">
+          </div>
+          <div>
+            <label class="text-xs text-gray-400 font-medium">Pesan</label>
+            <textarea id="queue-text-msg" rows="3" class="mt-1 w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-green-500 resize-none"></textarea>
+          </div>
+          <div>
+            <label class="text-xs text-gray-400 font-medium">Jadwal kirim (opsional)</label>
+            <input id="queue-text-sched" type="datetime-local" class="mt-1 w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-green-500">
+          </div>
+          <button onclick="queueText()" class="w-full bg-blue-600 hover:bg-blue-700 py-2 rounded-lg text-sm font-medium transition-colors">Masukkan ke Queue</button>
+          <div id="queue-text-result" class="text-xs min-h-[1.25rem]"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── QUEUE ───────────────────────────────────────────────── -->
+    <section id="section-queue" class="p-6 hidden">
+      <div class="flex justify-between items-center mb-4">
+        <h2 class="text-xl font-bold">Queue Management</h2>
+        <div class="flex gap-2">
+          <button onclick="runCron()" class="bg-green-600 hover:bg-green-700 px-4 py-2 rounded-lg text-sm font-medium">▶ Jalankan Cron</button>
+          <button onclick="resetFailed()" class="bg-yellow-600 hover:bg-yellow-700 px-4 py-2 rounded-lg text-sm font-medium">↩ Reset Failed</button>
+          <button onclick="loadQueue()" class="bg-gray-700 hover:bg-gray-600 px-4 py-2 rounded-lg text-sm">↺ Refresh</button>
+        </div>
+      </div>
+
+      <div id="cron-result" class="mb-3 text-sm min-h-[1.5rem]"></div>
+
+      <!-- Status pills -->
+      <div id="queue-stats" class="flex flex-wrap gap-2 mb-4"></div>
+
+      <!-- Filter -->
+      <div class="flex gap-2 mb-4">
+        <select id="queue-filter-status" onchange="loadQueue(1)" class="bg-gray-700 border border-gray-600 rounded-lg px-3 py-1.5 text-sm focus:outline-none">
+          <option value="">Semua status</option>
+          <option value="pending">pending</option>
+          <option value="sent">sent</option>
+          <option value="delivered">delivered</option>
+          <option value="read">read</option>
+          <option value="failed">failed</option>
+          <option value="not_registered">not_registered</option>
+        </select>
+        <input id="queue-filter-staff" onchange="loadQueue(1)" type="text" placeholder="Filter staff ID..." class="bg-gray-700 border border-gray-600 rounded-lg px-3 py-1.5 text-sm focus:outline-none w-40">
+      </div>
+
+      <div class="bg-gray-800 rounded-xl overflow-hidden border border-gray-700">
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm">
+            <thead class="bg-gray-700 text-gray-300 text-xs">
+              <tr>
+                <th class="px-4 py-3 text-left">ID</th>
+                <th class="px-4 py-3 text-left">Staff</th>
+                <th class="px-4 py-3 text-left">Nomor</th>
+                <th class="px-4 py-3 text-left">Pesan</th>
+                <th class="px-4 py-3 text-left">Tipe</th>
+                <th class="px-4 py-3 text-left">Status</th>
+                <th class="px-4 py-3 text-left">Retry</th>
+                <th class="px-4 py-3 text-left">Jadwal</th>
+                <th class="px-4 py-3 text-left">Waktu</th>
+              </tr>
+            </thead>
+            <tbody id="queue-table" class="divide-y divide-gray-700 text-xs"></tbody>
+          </table>
+        </div>
+      </div>
+      <div id="queue-pagination" class="flex justify-between items-center mt-4 text-sm text-gray-400"></div>
+    </section>
+
+    <!-- ── INCOMING ────────────────────────────────────────────── -->
+    <section id="section-incoming" class="p-6 hidden">
+      <div class="flex justify-between items-center mb-6">
+        <h2 class="text-xl font-bold">Pesan Masuk</h2>
+        <div class="flex items-center gap-3">
+          <span id="incoming-badge" class="hidden bg-red-600 text-white text-xs px-2 py-0.5 rounded-full">0 baru</span>
+          <button onclick="loadIncoming()" class="bg-gray-700 hover:bg-gray-600 px-4 py-2 rounded-lg text-sm">↺ Refresh</button>
+        </div>
+      </div>
+      <div class="bg-gray-800 rounded-xl overflow-hidden border border-gray-700">
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm">
+            <thead class="bg-gray-700 text-gray-300 text-xs">
+              <tr>
+                <th class="px-4 py-3 text-left">Staff</th>
+                <th class="px-4 py-3 text-left">Dari</th>
+                <th class="px-4 py-3 text-left">Pesan</th>
+                <th class="px-4 py-3 text-left">Tipe</th>
+                <th class="px-4 py-3 text-left">Media</th>
+                <th class="px-4 py-3 text-left">Waktu</th>
+              </tr>
+            </thead>
+            <tbody id="incoming-table" class="divide-y divide-gray-700 text-xs"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── TEMPLATES ──────────────────────────────────────────── -->
+    <section id="section-templates" class="p-6 hidden">
+      <h2 class="text-xl font-bold mb-6">Template Pesan</h2>
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- Form -->
+        <div class="bg-gray-800 rounded-xl p-6 border border-gray-700">
+          <h3 class="text-sm font-semibold mb-4">Tambah / Edit Template</h3>
+          <div class="space-y-3">
+            <div>
+              <label class="text-xs text-gray-400 font-medium">Nama (unik)</label>
+              <input id="tpl-name" type="text" placeholder="greeting, reminder, ..." class="mt-1 w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-green-500">
+            </div>
+            <div>
+              <label class="text-xs text-gray-400 font-medium">Isi Pesan</label>
+              <textarea id="tpl-content" rows="6" class="mt-1 w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-green-500 resize-none" placeholder="Ketik template..."></textarea>
+            </div>
+            <button onclick="saveTemplate()" class="w-full bg-green-600 hover:bg-green-700 py-2 rounded-lg text-sm font-medium transition-colors">Simpan Template</button>
+            <div id="tpl-result" class="text-xs min-h-[1.25rem]"></div>
+          </div>
+        </div>
+        <!-- List -->
+        <div class="bg-gray-800 rounded-xl p-6 border border-gray-700">
+          <h3 class="text-sm font-semibold mb-4">Daftar Template</h3>
+          <div id="template-list" class="space-y-2 overflow-y-auto max-h-96"></div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ══ MODAL: QR Scanner ═════════════════════════════════════ -->
+  <div id="modal-qr" class="hidden fixed inset-0 bg-black/75 flex items-center justify-center z-50 p-4">
+    <div class="bg-gray-800 rounded-2xl p-6 w-80 border border-gray-600 shadow-2xl">
+      <h3 class="text-lg font-bold mb-1">Scan QR WhatsApp</h3>
+      <p id="modal-qr-id" class="text-xs text-gray-400 mb-4"></p>
+      <div id="modal-qr-img" class="flex justify-center items-center bg-gray-900 rounded-xl min-h-52 mb-4">
+        <div class="text-center text-gray-500">
+          <div class="text-4xl mb-2">⏳</div>
+          <p class="text-xs">Memuat QR...</p>
+        </div>
+      </div>
+      <p class="text-xs text-gray-500 text-center mb-4">Buka WhatsApp → Perangkat Tertaut → Tautkan Perangkat</p>
+      <button onclick="closeQrModal()" class="w-full bg-gray-600 hover:bg-gray-500 py-2 rounded-lg text-sm transition-colors">Tutup</button>
+    </div>
+  </div>
+
+  <!-- ══ MODAL: Template Picker ════════════════════════════════ -->
+  <div id="modal-tpl" class="hidden fixed inset-0 bg-black/75 flex items-center justify-center z-50 p-4">
+    <div class="bg-gray-800 rounded-2xl p-6 w-96 border border-gray-600 shadow-2xl">
+      <h3 class="text-lg font-bold mb-4">Pilih Template</h3>
+      <div id="modal-tpl-list" class="space-y-2 max-h-64 overflow-y-auto"></div>
+      <button onclick="document.getElementById('modal-tpl').classList.add('hidden')" class="mt-4 w-full bg-gray-600 hover:bg-gray-500 py-2 rounded-lg text-sm transition-colors">Batal</button>
+    </div>
+  </div>
+
+  <script>
+  'use strict';
+  const socket = io();
+  let staffList    = [];
+  let tplTarget    = null;
+  let hourlyChart  = null;
+  let queuePage    = 1;
+  let newIncoming  = 0;
+
+  // cron token from URL param: ?cron=TOKEN
+  const CRON_TOKEN = new URLSearchParams(location.search).get('cron') || '';
+
+  // ── Navigation ───────────────────────────────────────────────
+  function showSection(name) {
+    document.querySelectorAll('section[id^="section-"]').forEach(s => s.classList.add('hidden'));
+    document.querySelectorAll('.nav-btn').forEach(b => {
+      b.classList.remove('bg-gray-700', 'text-white');
+      b.classList.add('text-gray-300');
+    });
+    document.getElementById('section-' + name).classList.remove('hidden');
+    const nb = document.getElementById('nav-' + name);
+    if (nb) { nb.classList.add('bg-gray-700','text-white'); nb.classList.remove('text-gray-300'); }
+    const loaders = { overview: loadOverview, staff: loadStaff, queue: () => loadQueue(1), incoming: loadIncoming, templates: loadTemplates };
+    if (loaders[name]) loaders[name]();
+    if (name === 'incoming') { newIncoming = 0; document.getElementById('incoming-badge').classList.add('hidden'); }
+  }
+
+  // ── Overview ─────────────────────────────────────────────────
+  async function loadOverview() {
+    await Promise.all([loadStats(), loadRecentFeed(), checkHealth()]);
+    renderHourlyChart();
+  }
+
+  async function loadStats() {
+    const [sRes, cRes] = await Promise.all([
+      fetch('/api/queue/stats').then(r=>r.json()).catch(()=>({stats:{}})),
+      fetch('/api/clients').then(r=>r.json()).catch(()=>({clients:[]})),
+    ]);
+    const s = sRes.stats || {};
+    const sent = (s.sent||0) + (s.delivered||0) + (s.read||0);
+    document.getElementById('stat-sent').textContent    = sent;
+    document.getElementById('stat-pending').textContent = s.pending || 0;
+    document.getElementById('stat-failed').textContent  = (s.failed||0) + (s.not_registered||0);
+    staffList = (cRes.clients||[]).map(c=>c.id);
+    document.getElementById('stat-clients').textContent = staffList.length;
+    updateSidebarClients();
+    updateStaffSelects();
+  }
+
+  async function checkHealth() {
+    const r = await fetch('/api/health').then(r=>r.json()).catch(()=>({db:'error'}));
+    const dot = document.getElementById('health-dot');
+    const lbl = document.getElementById('health-label');
+    const ok  = r.db === 'ok';
+    dot.className = `w-2 h-2 rounded-full ${ok?'bg-green-400':'bg-red-400'}`;
+    lbl.textContent = ok ? `DB ok · ${r.uptime}s uptime` : 'DB error';
+    lbl.className   = `text-xs ${ok?'text-gray-400':'text-red-400'}`;
+  }
+
+  function updateSidebarClients() {
+    const el = document.getElementById('sidebar-clients');
+    if (!staffList.length) { el.innerHTML = '<span class="text-gray-600 text-xs">Tidak ada</span>'; return; }
+    el.innerHTML = staffList.map(id =>
+      `<div class="flex items-center gap-1.5 text-xs">
+        <span class="w-1.5 h-1.5 rounded-full bg-green-400 flex-shrink-0"></span>
+        <span class="text-gray-300 truncate">${id}</span>
+      </div>`
+    ).join('');
+  }
+
+  function updateStaffSelects() {
+    ['send-text-staff','send-media-staff','send-bc-staff','queue-text-staff'].forEach(id => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      const prev = el.value;
+      el.innerHTML = staffList.length
+        ? staffList.map(s=>`<option value="${s}">${s}</option>`).join('')
+        : '<option value="">— tidak ada staff aktif —</option>';
+      if (prev && staffList.includes(prev)) el.value = prev;
+    });
+  }
+
+  async function renderHourlyChart() {
+    const res = await fetch('/api/outgoing?limit=200').then(r=>r.json()).catch(()=>({data:[]}));
+    const rows = res.data || [];
+    const now = new Date();
+    const buckets = {};
+    for (let i=23; i>=0; i--) {
+      const h = new Date(now - i*3600000).getHours();
+      buckets[h] = buckets[h] || 0;
+    }
+    rows.forEach(r => {
+      const h = new Date(r.created_at).getHours();
+      if (buckets[h] !== undefined) buckets[h]++;
+    });
+    const labels = Object.keys(buckets).map(h => h.toString().padStart(2,'0')+':00');
+    const data   = Object.values(buckets);
+    const ctx    = document.getElementById('chart-hourly').getContext('2d');
+    if (hourlyChart) hourlyChart.destroy();
+    hourlyChart = new Chart(ctx, {
+      type: 'bar',
+      data: { labels, datasets: [{ label: 'Pesan', data, backgroundColor: '#16a34a', borderRadius: 3, hoverBackgroundColor: '#22c55e' }] },
+      options: {
+        responsive: true,
+        plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => ` ${ctx.raw} pesan` } } },
+        scales: {
+          x: { ticks: { color: '#6b7280', font: { size: 9 } }, grid: { color: '#1f2937' } },
+          y: { ticks: { color: '#6b7280', precision: 0 }, grid: { color: '#1f2937' }, beginAtZero: true }
+        }
+      }
+    });
+  }
+
+  async function loadRecentFeed() {
+    const res = await fetch('/api/outgoing?limit=30').then(r=>r.json()).catch(()=>({data:[]}));
+    const feed = document.getElementById('live-feed');
+    feed.innerHTML = '';
+    (res.data||[]).forEach(r => prependFeed('out', r.staff_id, r.wa_number, r.message, r.status, r.created_at));
+  }
+
+  function prependFeed(dir, staff, num, msg, status, time) {
+    const feed = document.getElementById('live-feed');
+    const arrow = dir==='in' ? '←' : '→';
+    const cls   = dir==='in' ? 'text-blue-400' : 'text-green-400';
+    const t     = new Date(time).toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+    const div   = document.createElement('div');
+    div.className = `${cls} truncate py-0.5`;
+    div.textContent = `${t} ${arrow} [${staff||'?'}] ${num}: ${(msg||'').substring(0,50)}`;
+    feed.insertBefore(div, feed.firstChild);
+    while (feed.children.length > 60) feed.removeChild(feed.lastChild);
+  }
+
+  // ── Staff ────────────────────────────────────────────────────
+  async function loadStaff() {
+    const cRes = await fetch('/api/clients').then(r=>r.json()).catch(()=>({clients:[]}));
+    const online = new Set((cRes.clients||[]).map(c=>c.id));
+    staffList = [...online];
+    updateSidebarClients();
+    updateStaffSelects();
+    const saved = JSON.parse(localStorage.getItem('wa-staff-ids')||'[]');
+    const all = [...new Set([...online, ...saved])];
+    const grid = document.getElementById('staff-grid');
+    if (!all.length) { grid.innerHTML = '<p class="text-gray-500 text-sm col-span-4">Belum ada staff. Klik "Tambah Staff".</p>'; return; }
+    grid.innerHTML = all.map(id => {
+      const isOn = online.has(id);
+      return `<div class="bg-gray-800 rounded-xl p-4 border ${isOn?'border-green-700':'border-gray-700'}">
+        <div class="flex justify-between items-start mb-3">
+          <div>
+            <p class="font-semibold text-sm">${id}</p>
+            <p class="text-xs mt-0.5 ${isOn?'text-green-400':'text-gray-500'}">${isOn?'● Online':'○ Offline'}</p>
+          </div>
+          <div class="flex gap-1">
+            ${isOn ? `<button onclick="logoutStaff('${id}')" class="text-xs text-red-400 hover:text-red-300 px-2 py-1 rounded hover:bg-red-900/20">Logout</button>` : ''}
+            <button onclick="removeStaffLocal('${id}')" class="text-xs text-gray-500 hover:text-gray-300 px-2 py-1 rounded hover:bg-gray-700">✕</button>
+          </div>
+        </div>
+        ${isOn
+          ? '<div class="text-xs text-gray-500 bg-gray-900 rounded px-2 py-1">Session aktif ✓</div>'
+          : `<button onclick="connectStaff('${id}')" class="w-full mt-1 bg-green-600 hover:bg-green-700 py-1.5 rounded text-xs font-medium transition-colors">📷 Scan QR</button>`
+        }
+      </div>`;
+    }).join('');
+  }
+
+  function addStaff() {
+    const id = prompt('Staff ID baru (contoh: staff1, dr-ahmad, farmasi):');
+    if (!id || !id.trim()) return;
+    const saved = JSON.parse(localStorage.getItem('wa-staff-ids')||'[]');
+    if (!saved.includes(id.trim())) { saved.push(id.trim()); localStorage.setItem('wa-staff-ids', JSON.stringify(saved)); }
+    loadStaff();
+  }
+
+  function removeStaffLocal(id) {
+    const saved = JSON.parse(localStorage.getItem('wa-staff-ids')||'[]');
+    localStorage.setItem('wa-staff-ids', JSON.stringify(saved.filter(s=>s!==id)));
+    loadStaff();
+  }
+
+  function connectStaff(id) {
+    document.getElementById('modal-qr-id').textContent = 'Staff: ' + id;
+    document.getElementById('modal-qr-img').innerHTML = '<div class="text-center text-gray-500"><div class="text-4xl mb-2">⏳</div><p class="text-xs">Memuat QR...</p></div>';
+    document.getElementById('modal-qr').classList.remove('hidden');
+    socket.emit('check-auth', { id });
+  }
+
+  function closeQrModal() { document.getElementById('modal-qr').classList.add('hidden'); }
+
+  async function logoutStaff(id) {
+    if (!confirm(`Logout staff "${id}"?\nSession akan dihapus.`)) return;
+    const r = await fetch('/api/logout', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({id}) }).then(r=>r.json()).catch(()=>({success:false}));
+    alert(r.success ? `✓ ${id} berhasil logout` : `✗ Gagal: ${r.error||r.message}`);
+    loadStaff();
+  }
+
+  // ── Send: Text ───────────────────────────────────────────────
+  async function sendText() {
+    const id      = document.getElementById('send-text-staff').value;
+    const phone   = document.getElementById('send-text-phone').value.trim();
+    const message = document.getElementById('send-text-msg').value.trim();
+    const el      = document.getElementById('send-text-result');
+    if (!id || !phone || !message) { el.innerHTML='<span class="text-red-400">Semua field wajib diisi</span>'; return; }
+    el.innerHTML = '<span class="text-gray-400">Mengirim...</span>';
+    const r = await fetch('/api/send-text',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id,phone,message})}).then(r=>r.json()).catch(e=>({success:false,error:e.message}));
+    el.innerHTML = r.success ? `<span class="text-green-400">✓ Terkirim — ID: ${r.messageId}</span>` : `<span class="text-red-400">✗ ${r.message||r.error}</span>`;
+  }
+
+  // ── Send: Media ──────────────────────────────────────────────
+  async function sendMedia() {
+    const id      = document.getElementById('send-media-staff').value;
+    const phone   = document.getElementById('send-media-phone').value.trim();
+    const caption = document.getElementById('send-media-caption').value.trim();
+    const file    = document.getElementById('send-media-file').files[0];
+    const el      = document.getElementById('send-media-result');
+    if (!id||!phone||!file) { el.innerHTML='<span class="text-red-400">Staff, nomor, dan file wajib</span>'; return; }
+    el.innerHTML = '<span class="text-gray-400">Mengonversi file...</span>';
+    const b64 = await new Promise(res => { const fr=new FileReader(); fr.onload=e=>res(e.target.result.split(',')[1]); fr.readAsDataURL(file); });
+    el.innerHTML = '<span class="text-gray-400">Mengirim...</span>';
+    const r = await fetch('/api/send-media',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id,phone,filename:file.name,fileData:b64,caption})}).then(r=>r.json()).catch(e=>({success:false,error:e.message}));
+    el.innerHTML = r.success ? `<span class="text-green-400">✓ Terkirim</span>` : `<span class="text-red-400">✗ ${r.message||r.error}</span>`;
+  }
+
+  // ── Send: Broadcast ──────────────────────────────────────────
+  document.addEventListener('DOMContentLoaded', ()=>{
+    document.getElementById('send-bc-phones').addEventListener('input', function() {
+      const count = this.value.split('\n').map(s=>s.trim()).filter(Boolean).length;
+      document.getElementById('bc-count').textContent = count + ' nomor';
+    });
+  });
+
+  async function sendBroadcast() {
+    const id      = document.getElementById('send-bc-staff').value;
+    const message = document.getElementById('send-bc-msg').value.trim();
+    const phones  = document.getElementById('send-bc-phones').value.split('\n').map(s=>s.trim()).filter(Boolean);
+    const el      = document.getElementById('send-bc-result');
+    if (!id||!message||!phones.length) { el.innerHTML='<span class="text-red-400">Semua field wajib</span>'; return; }
+    el.innerHTML = `<span class="text-gray-400">Mengirim ke ${phones.length} nomor dengan delay acak...</span>`;
+    const r = await fetch('/api/broadcast-text',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id,message,phones})}).then(r=>r.json()).catch(e=>({success:false,results:[],error:e.message}));
+    const ok   = (r.results||[]).filter(x=>x.success).length;
+    const fail = (r.results||[]).filter(x=>!x.success).length;
+    el.innerHTML = `<span class="text-green-400">✓ ${ok} berhasil</span><span class="text-red-400 ml-3">✗ ${fail} gagal</span>`;
+  }
+
+  // ── Queue Text ───────────────────────────────────────────────
+  async function queueText() {
+    const staff_id    = document.getElementById('queue-text-staff').value;
+    const wa_number   = document.getElementById('queue-text-phone').value.trim();
+    const message     = document.getElementById('queue-text-msg').value.trim();
+    const scheduled_at = document.getElementById('queue-text-sched').value || undefined;
+    const el          = document.getElementById('queue-text-result');
+    if (!staff_id||!wa_number||!message) { el.innerHTML='<span class="text-red-400">Staff, nomor, pesan wajib</span>'; return; }
+    const r = await fetch('/api/queue-text',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({staff_id,wa_number,message,scheduled_at})}).then(r=>r.json()).catch(e=>({success:false,error:e.message}));
+    el.innerHTML = r.success ? `<span class="text-green-400">✓ Ditambahkan (ID: ${r.id})</span>` : `<span class="text-red-400">✗ ${r.error}</span>`;
+  }
+
+  // ── Queue Management ─────────────────────────────────────────
+  async function loadQueue(page = queuePage) {
+    queuePage = page;
+    const filterStatus = document.getElementById('queue-filter-status')?.value || '';
+    const filterStaff  = document.getElementById('queue-filter-staff')?.value.trim() || '';
+
+    const [sRes, oRes] = await Promise.all([
+      fetch('/api/queue/stats').then(r=>r.json()).catch(()=>({stats:{}})),
+      fetch(`/api/outgoing?page=${page}&limit=50`).then(r=>r.json()).catch(()=>({data:[],total:0,pages:1})),
+    ]);
+    const s = sRes.stats || {};
+    const cols = {pending:'yellow',sent:'green',delivered:'blue',read:'purple',failed:'red',not_registered:'gray'};
+    document.getElementById('queue-stats').innerHTML = Object.entries(s).map(([k,v]) => {
+      const c = cols[k]||'gray';
+      return `<span class="bg-${c}-900/50 text-${c}-300 border border-${c}-700 text-xs px-2.5 py-1 rounded-full">${k}: ${v}</span>`;
+    }).join('');
+
+    let rows = oRes.data || [];
+    if (filterStatus) rows = rows.filter(r=>r.status===filterStatus);
+    if (filterStaff)  rows = rows.filter(r=>r.staff_id.toLowerCase().includes(filterStaff.toLowerCase()));
+
+    const STATUS_COLOR = {pending:'text-yellow-400',sent:'text-green-400',delivered:'text-blue-400',read:'text-purple-400',failed:'text-red-400',not_registered:'text-gray-400'};
+    document.getElementById('queue-table').innerHTML = rows.map(r => {
+      const t = new Date(r.created_at).toLocaleString('id-ID');
+      const sch = r.scheduled_at ? new Date(r.scheduled_at).toLocaleString('id-ID') : '—';
+      return `<tr class="hover:bg-gray-750 transition-colors">
+        <td class="px-4 py-2 text-gray-500">${r.id}</td>
+        <td class="px-4 py-2 text-green-400">${r.staff_id}</td>
+        <td class="px-4 py-2 font-mono text-xs">${r.wa_number}</td>
+        <td class="px-4 py-2 max-w-xs truncate text-gray-300" title="${(r.message||'').replace(/"/g,'&quot;')}">${(r.message||'').substring(0,45)}</td>
+        <td class="px-4 py-2 text-gray-400">${r.msg_type}</td>
+        <td class="px-4 py-2 font-medium ${STATUS_COLOR[r.status]||''}">${r.status}</td>
+        <td class="px-4 py-2 text-gray-400">${r.retry_count||0}</td>
+        <td class="px-4 py-2 text-gray-500 text-xs">${sch}</td>
+        <td class="px-4 py-2 text-gray-500 text-xs">${t}</td>
+      </tr>`;
+    }).join('') || '<tr><td colspan="9" class="px-4 py-8 text-center text-gray-600">Tidak ada data</td></tr>';
+
+    document.getElementById('queue-pagination').innerHTML =
+      `<span>Halaman ${page} / ${oRes.pages||1} — ${oRes.total||0} total</span>
+       <div class="flex gap-2">
+         ${page>1?`<button onclick="loadQueue(${page-1})" class="bg-gray-700 hover:bg-gray-600 px-3 py-1 rounded text-xs transition-colors">← Prev</button>`:''}
+         ${page<(oRes.pages||1)?`<button onclick="loadQueue(${page+1})" class="bg-gray-700 hover:bg-gray-600 px-3 py-1 rounded text-xs transition-colors">Next →</button>`:''}
+       </div>`;
+  }
+
+  async function runCron() {
+    const el = document.getElementById('cron-result');
+    el.innerHTML = '<span class="text-gray-400">⏳ Menjalankan...</span>';
+    const r = await fetch(`/api/run-cron?token=${encodeURIComponent(CRON_TOKEN)}&limit=20`).then(r=>r.json()).catch(e=>({success:false,error:e.message}));
+    el.innerHTML = r.success
+      ? `<span class="text-green-400">✓ Selesai — total: ${r.total}, sukses: ${r.success}, gagal: ${r.failed}</span>`
+      : `<span class="text-red-400">✗ ${r.message||r.error} ${r.message==='Forbidden'?'— tambahkan ?cron=TOKEN ke URL':''}</span>`;
+    loadQueue(1);
+  }
+
+  async function resetFailed() {
+    const r = await fetch('/api/queue/reset-failed',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'}).then(r=>r.json()).catch(()=>({success:false}));
+    document.getElementById('cron-result').innerHTML = r.success
+      ? `<span class="text-yellow-400">↩ ${r.affected} pesan direset ke pending</span>`
+      : `<span class="text-red-400">✗ ${r.error}</span>`;
+    loadQueue(1);
+  }
+
+  // ── Incoming ─────────────────────────────────────────────────
+  async function loadIncoming() {
+    const res = await fetch('/api/incoming?limit=100').then(r=>r.json()).catch(()=>({data:[]}));
+    document.getElementById('incoming-table').innerHTML = (res.data||[]).map(r =>
+      `<tr class="hover:bg-gray-750 transition-colors">
+        <td class="px-4 py-2 text-green-400">${r.staff_id}</td>
+        <td class="px-4 py-2 font-mono text-xs">${r.from_number}</td>
+        <td class="px-4 py-2 max-w-xs text-gray-300">${(r.body||'').substring(0,80)}</td>
+        <td class="px-4 py-2 text-gray-400 text-xs">${r.msg_type}</td>
+        <td class="px-4 py-2 text-xs">${r.has_media?'📎 ya':'—'}</td>
+        <td class="px-4 py-2 text-gray-500 text-xs">${new Date(r.created_at).toLocaleString('id-ID')}</td>
+      </tr>`
+    ).join('') || '<tr><td colspan="6" class="px-4 py-8 text-center text-gray-600">Belum ada pesan masuk</td></tr>';
+  }
+
+  // ── Templates ────────────────────────────────────────────────
+  async function loadTemplates() {
+    const res = await fetch('/api/templates').then(r=>r.json()).catch(()=>({data:[]}));
+    document.getElementById('template-list').innerHTML = (res.data||[]).map(t =>
+      `<div class="bg-gray-700 rounded-lg p-3 border border-gray-600">
+        <div class="flex justify-between items-start gap-2">
+          <p class="font-medium text-sm truncate">${t.name}</p>
+          <div class="flex gap-1 flex-shrink-0">
+            <button onclick="editTemplate('${t.name.replace(/'/g,"\\'")}',\`${t.content.replace(/`/g,'\\`')}\`)" class="text-xs text-blue-400 hover:text-blue-300 px-1">Edit</button>
+            <button onclick="deleteTemplate(${t.id})" class="text-xs text-red-400 hover:text-red-300 px-1">Hapus</button>
+          </div>
+        </div>
+        <p class="text-xs text-gray-400 mt-1 line-clamp-2">${t.content.substring(0,80)}</p>
+      </div>`
+    ).join('') || '<p class="text-gray-500 text-sm">Belum ada template</p>';
+  }
+
+  async function saveTemplate() {
+    const name    = document.getElementById('tpl-name').value.trim();
+    const content = document.getElementById('tpl-content').value.trim();
+    const el      = document.getElementById('tpl-result');
+    if (!name||!content) { el.innerHTML='<span class="text-red-400">Nama dan isi wajib</span>'; return; }
+    const r = await fetch('/api/templates',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,content})}).then(r=>r.json()).catch(e=>({success:false,error:e.message}));
+    if (r.success) {
+      document.getElementById('tpl-name').value = '';
+      document.getElementById('tpl-content').value = '';
+      el.innerHTML = '<span class="text-green-400">✓ Disimpan</span>';
+      loadTemplates();
+    } else {
+      el.innerHTML = `<span class="text-red-400">✗ ${r.error}</span>`;
+    }
+  }
+
+  async function deleteTemplate(id) {
+    if (!confirm('Hapus template ini?')) return;
+    await fetch('/api/templates/'+id,{method:'DELETE'});
+    loadTemplates();
+  }
+
+  function editTemplate(name, content) {
+    document.getElementById('tpl-name').value    = name;
+    document.getElementById('tpl-content').value = content;
+    document.getElementById('tpl-name').focus();
+  }
+
+  function openTemplatePicker(fieldId) {
+    tplTarget = fieldId;
+    fetch('/api/templates').then(r=>r.json()).then(res => {
+      document.getElementById('modal-tpl-list').innerHTML = (res.data||[]).map(t =>
+        `<button onclick="applyTemplate(\`${t.content.replace(/`/g,'\\`')}\`)" class="w-full text-left bg-gray-700 hover:bg-gray-600 rounded-lg p-3 text-sm border border-gray-600 hover:border-gray-500 transition-colors">
+          <p class="font-medium">${t.name}</p>
+          <p class="text-xs text-gray-400 mt-0.5 truncate">${t.content.substring(0,60)}</p>
+        </button>`
+      ).join('') || '<p class="text-gray-500 text-sm">Tidak ada template</p>';
+      document.getElementById('modal-tpl').classList.remove('hidden');
+    });
+  }
+
+  function applyTemplate(content) {
+    if (tplTarget) document.getElementById(tplTarget).value = content;
+    document.getElementById('modal-tpl').classList.add('hidden');
+  }
+
+  // ── Send Tabs ────────────────────────────────────────────────
+  function showSendTab(name) {
+    ['text','media','broadcast','queuetxt'].forEach(t => {
+      document.getElementById('send-tab-' + t).classList.add('hidden');
+    });
+    document.getElementById('send-tab-' + name).classList.remove('hidden');
+    const labels = {text:'Teks',media:'Media/File',broadcast:'Broadcast',queuetxt:'Queue Text'};
+    document.querySelectorAll('.send-tab').forEach(b => {
+      const active = b.textContent.trim() === labels[name];
+      b.classList.toggle('bg-green-600', active);
+      b.classList.toggle('text-white',   active);
+      b.classList.toggle('text-gray-400', !active);
+    });
+  }
+
+  // ── Socket.IO ────────────────────────────────────────────────
+  socket.on('wa-new-outgoing', row => {
+    prependFeed('out', row.staff_id, row.wa_number, row.message, row.status, new Date().toISOString());
+    loadStats();
+  });
+
+  socket.on('wa-new-incoming', data => {
+    prependFeed('in', data.staff_id, data.from, data.body, 'in', new Date().toISOString());
+    newIncoming++;
+    const badge = document.getElementById('incoming-badge');
+    badge.textContent = newIncoming + ' baru';
+    badge.classList.remove('hidden');
+  });
+
+  socket.on('wa-status-update', () => { /* queue table updates on next refresh */ });
+
+  socket.on('wa-client-logout', ({id}) => {
+    staffList = staffList.filter(s => s !== id);
+    updateSidebarClients();
+    updateStaffSelects();
+  });
+
+  socket.onAny((event, data) => {
+    if (event.startsWith('qr:')) {
+      document.getElementById('modal-qr-img').innerHTML = `<img src="${data}" class="w-48 h-48 rounded-lg" alt="QR Code">`;
+    }
+    if (event.startsWith('connected:')) {
+      const id = event.replace('connected:','');
+      closeQrModal();
+      if (!staffList.includes(id)) { staffList.push(id); updateSidebarClients(); updateStaffSelects(); }
+      const saved = JSON.parse(localStorage.getItem('wa-staff-ids')||'[]');
+      if (!saved.includes(id)) { saved.push(id); localStorage.setItem('wa-staff-ids', JSON.stringify(saved)); }
+      loadStats();
+    }
+  });
+
+  // ── Init ─────────────────────────────────────────────────────
+  showSection('overview');
+  setInterval(loadStats, 30000);
+  setInterval(checkHealth, 60000);
+  </script>
+</body>
+</html>
