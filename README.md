@@ -293,6 +293,60 @@ Examples: `08123456789` → `628123456789@c.us`, `+62812...` → `62812...@c.us`
 
 ---
 
+## Avoiding WhatsApp Bans
+
+WhatsApp may ban numbers that exhibit spammy behavior. Follow these guidelines to keep your accounts safe.
+
+### Recommended Number Types
+
+| Type | Risk | Notes |
+|---|---|---|
+| WA Business (6+ months old) | Low | Best choice |
+| WA Personal (1+ year old) | Low–Medium | Generally safe |
+| WA Business (newly registered) | High | Warm up first |
+| Any number < 3 months old | Very high | Avoid for bulk sending |
+
+### Warm-up Schedule
+
+Never blast from a fresh number. Build trust gradually:
+
+| Week | Max messages/day |
+|---|---|
+| 1 | 20 |
+| 2 | 50 |
+| 3 | 100 |
+| 4+ | Normal volume |
+
+Only send to contacts who have saved your number during warm-up.
+
+### Safe `.env` Config
+
+```env
+QUEUE_DELAY_MIN=3000    # minimum 3s between messages
+QUEUE_DELAY_MAX=8000    # random up to 8s — mimics human behavior
+MAX_RETRY=3
+```
+
+Do **not** set delays below 2000ms. WhatsApp detects robotic sending patterns.
+
+### Daily Volume Limits (conservative)
+
+| Account type | Safe daily limit |
+|---|---|
+| New / warming up | 20–50 |
+| Personal (established) | 200–300 |
+| WA Business (verified) | 500+ |
+
+### Best Practices
+
+- **Spread load** — use 3–5 staff accounts instead of blasting all from one number
+- **Vary message text** — do not send 100 identical messages; use templates with slight variation
+- **Avoid short URLs** (bit.ly, tinyurl) — flagged as spam by WhatsApp
+- **Clean your list** — high `not_registered` rate signals spam behavior; remove invalid numbers
+- **Don't cold-blast** — send only to people who expect your message or have consented
+
+---
+
 ## License
 
 MIT
