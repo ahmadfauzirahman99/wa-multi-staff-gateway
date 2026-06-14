@@ -26,11 +26,13 @@ Built on [whatsapp-web.js](https://github.com/pedroslopez/whatsapp-web.js) + Exp
 
 ## Screenshots
 
-> Take screenshots of your running instance and save them to `docs/screenshots/`.
-
-| QR Scanner | Send Dashboard | Outgoing Log |
+| QR Scanner | Send Dashboard | Outgoing Monitor |
 |---|---|---|
-| `docs/screenshots/qr-scanner.png` | `docs/screenshots/dashboard.png` | `docs/screenshots/outgoing.png` |
+| ![QR Scanner](docs/screenshots/qr-scanner.png) | ![Dashboard](docs/screenshots/dashboard.png) | ![Outgoing](docs/screenshots/outgoing.png) |
+
+**QR Scanner** — enter staff ID, scan QR with WhatsApp to connect session.  
+**Send Dashboard** — send text / file / broadcast with active staff selector.  
+**Outgoing Monitor** — real-time status tracking with filter by staff, number, message, status.
 
 ---
 
