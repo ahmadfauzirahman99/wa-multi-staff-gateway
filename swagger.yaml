@@ -1,0 +1,732 @@
+openapi: 3.0.3
+info:
+  title: WhatsApp Multi-Staff Gateway
+  description: |
+    Self-hosted WhatsApp gateway supporting multiple staff accounts.
+
+    ## Authentication
+    When `API_KEY` is configured on the server, pass it via one of:
+    - Header: `x-api-key: your-key`
+    - Header: `Authorization: Bearer your-key`
+    - Query: `?api_key=your-key`
+
+    `/api/health` is always public (no auth required).
+  version: 1.0.0
+  license:
+    name: MIT
+
+servers:
+  - url: http://localhost:3030
+    description: Local development
+
+security:
+  - ApiKeyHeader: []
+  - BearerAuth: []
+  - ApiKeyQuery: []
+
+components:
+  securitySchemes:
+    ApiKeyHeader:
+      type: apiKey
+      in: header
+      name: x-api-key
+    BearerAuth:
+      type: http
+      scheme: bearer
+    ApiKeyQuery:
+      type: apiKey
+      in: query
+      name: api_key
+
+  schemas:
+    Success:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+
+    Error:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        message:
+          type: string
+        error:
+          type: string
+
+    OutgoingMessage:
+      type: object
+      properties:
+        id:
+          type: integer
+        staff_id:
+          type: string
+        wa_number:
+          type: string
+          description: Phone number without +, e.g. 628123456789
+        message:
+          type: string
+        msg_type:
+          type: string
+          enum: [text, file, pdf]
+        status:
+          type: string
+          enum: [pending, sent, delivered, read, failed, not_registered]
+        message_id:
+          type: string
+          nullable: true
+        file_name:
+          type: string
+          nullable: true
+        retry_count:
+          type: integer
+        scheduled_at:
+          type: string
+          format: date-time
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    IncomingMessage:
+      type: object
+      properties:
+        id:
+          type: integer
+        staff_id:
+          type: string
+        from_number:
+          type: string
+        body:
+          type: string
+        msg_type:
+          type: string
+        has_media:
+          type: integer
+          enum: [0, 1]
+        created_at:
+          type: string
+          format: date-time
+
+    Template:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        content:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+
+paths:
+  /api/health:
+    get:
+      summary: Health check
+      description: Returns server status, DB connectivity, and active client count. No auth required.
+      security: []
+      tags: [Status]
+      responses:
+        '200':
+          description: Health status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  uptime:
+                    type: integer
+                    description: Server uptime in seconds
+                  db:
+                    type: string
+                    enum: [ok, error]
+                  clients:
+                    type: integer
+                    description: Number of connected WA clients
+                  client_ids:
+                    type: array
+                    items:
+                      type: string
+                  timestamp:
+                    type: string
+                    format: date-time
+
+  /api/clients:
+    get:
+      summary: List connected staff
+      description: Returns all staff IDs with active WhatsApp sessions.
+      tags: [Status]
+      responses:
+        '200':
+          description: List of connected clients
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  clients:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                        connected:
+                          type: boolean
+
+  /api/queue/stats:
+    get:
+      summary: Queue statistics
+      description: Message count grouped by status.
+      tags: [Queue]
+      responses:
+        '200':
+          description: Stats by status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  stats:
+                    type: object
+                    additionalProperties:
+                      type: integer
+                    example:
+                      pending: 5
+                      sent: 120
+                      delivered: 115
+                      failed: 2
+
+  /api/queue/reset-failed:
+    post:
+      summary: Reset failed messages to pending
+      tags: [Queue]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                staff_id:
+                  type: string
+                  description: Optional — filter reset by staff. Omit to reset all.
+      responses:
+        '200':
+          description: Number of rows affected
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  affected:
+                    type: integer
+
+  /api/outgoing:
+    get:
+      summary: List outgoing messages
+      description: Paginated list of outgoing messages. Does not return file_data (base64 content).
+      tags: [Messages]
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 200
+            maximum: 500
+      responses:
+        '200':
+          description: Paginated outgoing messages
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/OutgoingMessage'
+                  total:
+                    type: integer
+                  page:
+                    type: integer
+                  limit:
+                    type: integer
+                  pages:
+                    type: integer
+
+  /api/incoming:
+    get:
+      summary: List incoming messages
+      tags: [Messages]
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 100
+            maximum: 500
+      responses:
+        '200':
+          description: Paginated incoming messages
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/IncomingMessage'
+                  total:
+                    type: integer
+                  page:
+                    type: integer
+                  limit:
+                    type: integer
+
+  /api/send-text:
+    post:
+      summary: Send text immediately
+      description: |
+        Send a text message immediately. WA client for `id` must be connected.
+        Rate limited: 30 requests/minute.
+      tags: [Immediate Send]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [id, phone, message]
+              properties:
+                id:
+                  type: string
+                  description: Staff ID
+                  example: staff1
+                phone:
+                  type: string
+                  description: Phone number (will be normalized — leading 0 becomes 62)
+                  example: "08123456789"
+                message:
+                  type: string
+                  example: "Hello from WhatsApp Gateway!"
+      responses:
+        '200':
+          description: Message sent
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  messageId:
+                    type: string
+                  dbId:
+                    type: integer
+        '400':
+          description: Client not connected or number not registered
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/send-media:
+    post:
+      summary: Send media immediately
+      description: |
+        Send a file or image immediately. `fileData` must be base64-encoded content (without data URI prefix).
+        Rate limited: 30 requests/minute.
+      tags: [Immediate Send]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [id, phone, filename, fileData]
+              properties:
+                id:
+                  type: string
+                  description: Staff ID
+                phone:
+                  type: string
+                filename:
+                  type: string
+                  example: "document.pdf"
+                fileData:
+                  type: string
+                  description: Base64-encoded file content
+                caption:
+                  type: string
+                  description: Optional caption
+      responses:
+        '200':
+          description: Media sent
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  messageId:
+                    type: string
+                  dbId:
+                    type: integer
+        '400':
+          $ref: '#/components/schemas/Error'
+
+  /api/broadcast-text:
+    post:
+      summary: Broadcast text to multiple numbers
+      description: |
+        Send the same text to multiple phone numbers sequentially with a random delay between sends.
+        Rate limited: 30 requests/minute.
+      tags: [Immediate Send]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [id, message, phones]
+              properties:
+                id:
+                  type: string
+                  description: Staff ID
+                message:
+                  type: string
+                phones:
+                  type: array
+                  items:
+                    type: string
+                  example: ["08123456789", "08987654321"]
+      responses:
+        '200':
+          description: Broadcast results
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  results:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        phone:
+                          type: string
+                        success:
+                          type: boolean
+                        id:
+                          type: string
+                        dbId:
+                          type: integer
+                        error:
+                          type: string
+
+  /api/queue-text:
+    post:
+      summary: Queue a text message
+      description: Insert a text message into the queue. Delivery happens when `/api/run-cron` is called.
+      tags: [Queue]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [staff_id, wa_number, message]
+              properties:
+                staff_id:
+                  type: string
+                  example: staff1
+                wa_number:
+                  type: string
+                  example: "628123456789"
+                message:
+                  type: string
+                scheduled_at:
+                  type: string
+                  format: date-time
+                  description: Optional — delay delivery until this datetime
+                  example: "2025-12-31 08:00:00"
+      responses:
+        '200':
+          description: Queued
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  id:
+                    type: integer
+                    description: Database row ID
+
+  /api/queue-pdf:
+    post:
+      summary: Queue a PDF file
+      description: Insert a PDF into the queue. `file_base64` data URI prefix is stripped automatically.
+      tags: [Queue]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [staff_id, wa_number, file_name, file_base64]
+              properties:
+                staff_id:
+                  type: string
+                wa_number:
+                  type: string
+                caption:
+                  type: string
+                  description: Message caption for the PDF
+                file_name:
+                  type: string
+                  example: "report.pdf"
+                file_base64:
+                  type: string
+                  description: Base64 content or full data URI
+                scheduled_at:
+                  type: string
+                  format: date-time
+      responses:
+        '200':
+          description: Queued
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  id:
+                    type: integer
+
+  /api/queue-media:
+    post:
+      summary: Queue any media file (image, doc, etc.)
+      tags: [Queue]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [staff_id, wa_number, file_name, file_base64]
+              properties:
+                staff_id:
+                  type: string
+                wa_number:
+                  type: string
+                file_name:
+                  type: string
+                file_mime:
+                  type: string
+                  example: "image/jpeg"
+                file_base64:
+                  type: string
+                caption:
+                  type: string
+                scheduled_at:
+                  type: string
+                  format: date-time
+      responses:
+        '200':
+          description: Queued
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  id:
+                    type: integer
+
+  /api/run-cron:
+    get:
+      summary: Process pending queue
+      description: |
+        Process up to `limit` pending messages. Requires `token` matching `CRON_TOKEN`.
+        Call this endpoint from an external cron scheduler (e.g. every 1–5 minutes).
+      tags: [Queue]
+      security: []
+      parameters:
+        - name: token
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Must match CRON_TOKEN env variable
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+            maximum: 100
+          description: Max messages to process per call
+      responses:
+        '200':
+          description: Processing result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  total:
+                    type: integer
+                  success:
+                    type: integer
+                  failed:
+                    type: integer
+        '403':
+          description: Invalid token
+
+  /api/logout:
+    post:
+      summary: Logout a staff session
+      description: Logout the WA client, destroy session, and delete local session files.
+      tags: [Session]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [id]
+              properties:
+                id:
+                  type: string
+                  description: Staff ID to logout
+      responses:
+        '200':
+          description: Logged out
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  message:
+                    type: string
+        '400':
+          $ref: '#/components/schemas/Error'
+
+  /api/templates:
+    get:
+      summary: List message templates
+      tags: [Templates]
+      responses:
+        '200':
+          description: All templates
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Template'
+
+    post:
+      summary: Create or update a template
+      description: Uses INSERT ... ON DUPLICATE KEY UPDATE — safe to call multiple times.
+      tags: [Templates]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, content]
+              properties:
+                name:
+                  type: string
+                  description: Unique template name
+                  example: greeting
+                content:
+                  type: string
+                  example: "Halo {name}, terima kasih telah menghubungi kami."
+      responses:
+        '200':
+          description: Saved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Success'
+
+  /api/templates/{id}:
+    delete:
+      summary: Delete a template
+      tags: [Templates]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Success'
+
+tags:
+  - name: Status
+    description: Server health and connected client info
+  - name: Immediate Send
+    description: Send messages instantly (WA client must be active)
+  - name: Queue
+    description: Queue messages for background delivery
+  - name: Messages
+    description: View outgoing and incoming message history
+  - name: Session
+    description: Manage WhatsApp sessions
+  - name: Templates
+    description: Reusable message templates

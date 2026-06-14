@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Templates — WA Gateway</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --primary: #2563eb; --primary-h: #1d4ed8;
+      --success: #16a34a; --danger: #dc2626;
+      --bg: #f1f5f9; --surface: #fff;
+      --border: #e2e8f0; --text: #0f172a; --muted: #64748b;
+      --shadow: 0 1px 3px rgba(0,0,0,.07), 0 4px 16px rgba(0,0,0,.05);
+    }
+    body { font-family: 'Inter', system-ui, sans-serif; background: var(--bg); color: var(--text); font-size: 14px; }
+
+    .nav { background: #0f172a; height: 56px; display: flex; align-items: center; padding: 0 24px; gap: 4px; position: sticky; top: 0; z-index: 100; overflow-x: auto; }
+    .nav-brand { color: #f1f5f9; font-weight: 700; font-size: 15px; margin-right: 20px; display: flex; align-items: center; gap: 8px; text-decoration: none; white-space: nowrap; }
+    .nav-dot { width: 8px; height: 8px; background: #25d366; border-radius: 50%; flex-shrink: 0; }
+    .nav a { color: #94a3b8; text-decoration: none; font-size: 13px; padding: 6px 10px; border-radius: 6px; transition: all .15s; white-space: nowrap; }
+    .nav a:hover, .nav a.active { color: #f1f5f9; background: rgba(255,255,255,.08); }
+
+    .page { max-width: 900px; margin: 40px auto; padding: 0 20px; }
+    .page-header { display: flex; align-items: flex-end; justify-content: space-between; margin-bottom: 24px; flex-wrap: wrap; gap: 12px; }
+    .page-title { font-size: 22px; font-weight: 700; }
+    .page-sub { color: var(--muted); font-size: 13px; margin-top: 2px; }
+
+    .grid { display: grid; grid-template-columns: 340px 1fr; gap: 20px; align-items: start; }
+    @media(max-width:700px) { .grid { grid-template-columns: 1fr; } }
+
+    .card { background: var(--surface); border-radius: 14px; box-shadow: var(--shadow); border: 1px solid var(--border); padding: 24px; }
+    .card-title { font-size: 15px; font-weight: 600; margin-bottom: 18px; padding-bottom: 12px; border-bottom: 1px solid var(--border); }
+
+    .form-group { margin-bottom: 16px; }
+    .form-label { display: block; font-size: 13px; font-weight: 500; margin-bottom: 6px; }
+    .form-input, .form-textarea { width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; font-size: 14px; font-family: inherit; color: var(--text); outline: none; transition: border-color .15s, box-shadow .15s; }
+    .form-input:focus, .form-textarea:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(37,99,235,.1); }
+    .form-textarea { resize: vertical; min-height: 140px; }
+
+    .btn { display: flex; align-items: center; justify-content: center; gap: 6px; padding: 10px 18px; border: none; border-radius: 8px; font-size: 13px; font-weight: 500; cursor: pointer; transition: all .15s; font-family: inherit; width: 100%; }
+    .btn-primary { background: var(--primary); color: #fff; }
+    .btn-primary:hover:not(:disabled) { background: var(--primary-h); }
+    .btn:disabled { opacity: .5; cursor: not-allowed; }
+
+    .status-bar { margin-top: 14px; padding: 10px 14px; border-radius: 8px; font-size: 13px; background: #1e293b; color: #f1f5f9; display: none; }
+    .status-bar.success { background: var(--success); }
+    .status-bar.error   { background: var(--danger); }
+
+    /* Template list */
+    .tpl-list { display: flex; flex-direction: column; gap: 10px; }
+    .tpl-item { border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; background: #fafbff; position: relative; }
+    .tpl-name { font-weight: 600; font-size: 14px; margin-bottom: 6px; display: flex; align-items: center; gap: 8px; }
+    .tpl-content { font-size: 13px; color: var(--muted); white-space: pre-wrap; line-height: 1.5; max-height: 80px; overflow: hidden; text-overflow: ellipsis; }
+    .tpl-actions { display: flex; gap: 6px; margin-top: 10px; }
+    .btn-xs { display: inline-flex; align-items: center; gap: 4px; padding: 5px 10px; border: 1px solid var(--border); border-radius: 6px; font-size: 11px; font-weight: 500; cursor: pointer; background: var(--surface); font-family: inherit; transition: all .15s; }
+    .btn-xs:hover { background: var(--bg); }
+    .btn-xs.danger { border-color: #fca5a5; color: var(--danger); }
+    .btn-xs.danger:hover { background: #fee2e2; }
+    .tpl-empty { text-align: center; padding: 32px; color: var(--muted); font-size: 13px; }
+
+    .toast { position: fixed; top: 72px; right: 20px; padding: 12px 18px; border-radius: 10px; font-size: 13px; font-weight: 500; color: #fff; z-index: 999; opacity: 0; transition: opacity .25s; }
+    .toast.show { opacity: 1; }
+    .toast.success { background: var(--success); }
+    .toast.error   { background: var(--danger); }
+  </style>
+</head>
+<body>
+
+<nav class="nav">
+  <a href="/wa-dashboard.html" class="nav-brand"><span class="nav-dot"></span>WA Gateway</a>
+  <a href="/qr-scanner.html">QR Scanner</a>
+  <a href="/wa-dashboard.html">Dashboard</a>
+  <a href="/send-text.html">Kirim Teks</a>
+  <a href="/send-media.html">Kirim Media</a>
+  <a href="/wa-clients.html">Clients</a>
+  <a href="/outgoing-dashboard.html">Outgoing</a>
+  <a href="/incoming-dashboard.html">Incoming</a>
+  <a href="/templates.html" class="active">Templates</a>
+</nav>
+
+<div class="page">
+  <div class="page-header">
+    <div>
+      <div class="page-title">Template Pesan</div>
+      <div class="page-sub">Kelola template pesan yang sering digunakan</div>
+    </div>
+  </div>
+
+  <div class="grid">
+    <!-- Form tambah / edit -->
+    <div class="card">
+      <div class="card-title" id="formTitle">Tambah Template</div>
+      <div class="form-group">
+        <label class="form-label">Nama Template</label>
+        <input class="form-input" id="tplName" placeholder="contoh: tagihan_bulanan">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Isi Pesan</label>
+        <textarea class="form-textarea" id="tplContent" placeholder="Tulis isi template...&#10;&#10;Gunakan {nama}, {tanggal} dll untuk variabel."></textarea>
+      </div>
+      <button class="btn btn-primary" id="btnSave" onclick="saveTemplate()">Simpan Template</button>
+      <div class="status-bar" id="statusBar"></div>
+    </div>
+
+    <!-- Daftar template -->
+    <div class="card">
+      <div class="card-title">Daftar Template <span id="tplCount" style="font-size:12px;color:var(--muted);font-weight:400;"></span></div>
+      <div class="tpl-list" id="tplList">
+        <div class="tpl-empty">Memuat...</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+  function showToast(text, type = 'success') {
+    const t = document.getElementById('toast');
+    t.textContent = text; t.className = 'toast ' + type + ' show';
+    setTimeout(() => t.className = 'toast', 2800);
+  }
+
+  function showStatus(text, type = '') {
+    const bar = document.getElementById('statusBar');
+    bar.style.display = 'block';
+    bar.className = 'status-bar' + (type ? ' ' + type : '');
+    bar.textContent = text;
+  }
+
+  function copyText(text) {
+    navigator.clipboard.writeText(text).then(() => showToast('Tersalin ke clipboard'));
+  }
+
+  async function loadTemplates() {
+    try {
+      const res = await fetch('/api/templates');
+      const json = await res.json();
+      if (!json.success) return;
+      const list = json.data || [];
+      document.getElementById('tplCount').textContent = '(' + list.length + ')';
+
+      const el = document.getElementById('tplList');
+      if (!list.length) {
+        el.innerHTML = '<div class="tpl-empty">Belum ada template</div>';
+        return;
+      }
+
+      el.innerHTML = list.map(t => `
+        <div class="tpl-item" id="tpl-${t.id}">
+          <div class="tpl-name">
+            <span>${t.name}</span>
+          </div>
+          <div class="tpl-content">${escHtml(t.content)}</div>
+          <div class="tpl-actions">
+            <button class="btn-xs" onclick="copyText(${JSON.stringify(t.content)})">📋 Copy</button>
+            <button class="btn-xs" onclick="editTemplate(${t.id}, ${JSON.stringify(t.name)}, ${JSON.stringify(t.content)})">✏️ Edit</button>
+            <button class="btn-xs danger" onclick="deleteTemplate(${t.id}, '${escHtml(t.name)}')">🗑 Hapus</button>
+          </div>
+        </div>
+      `).join('');
+    } catch (e) {
+      showToast('Error memuat template: ' + e.message, 'error');
+    }
+  }
+
+  function escHtml(s) {
+    return (s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  let editingId = null;
+
+  function editTemplate(id, name, content) {
+    editingId = id;
+    document.getElementById('tplName').value    = name;
+    document.getElementById('tplContent').value = content;
+    document.getElementById('formTitle').textContent = 'Edit Template';
+    document.getElementById('tplName').focus();
+  }
+
+  async function saveTemplate() {
+    const name    = document.getElementById('tplName').value.trim();
+    const content = document.getElementById('tplContent').value.trim();
+    const btn     = document.getElementById('btnSave');
+    if (!name || !content) { showStatus('Nama dan isi wajib diisi', 'error'); return; }
+
+    btn.disabled = true;
+    showStatus('Menyimpan...');
+
+    try {
+      const res = await fetch('/api/templates', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, content })
+      });
+      const json = await res.json();
+      if (json.success) {
+        showStatus('Template tersimpan', 'success');
+        document.getElementById('tplName').value    = '';
+        document.getElementById('tplContent').value = '';
+        document.getElementById('formTitle').textContent = 'Tambah Template';
+        editingId = null;
+        loadTemplates();
+      } else {
+        showStatus('Gagal: ' + (json.error || json.message), 'error');
+      }
+    } catch (e) {
+      showStatus('Error: ' + e.message, 'error');
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
+  async function deleteTemplate(id, name) {
+    if (!confirm('Hapus template "' + name + '"?')) return;
+    try {
+      const res = await fetch('/api/templates/' + id, { method: 'DELETE' });
+      const json = await res.json();
+      if (json.success) {
+        showToast('Template dihapus');
+        loadTemplates();
+      } else {
+        showToast('Gagal hapus', 'error');
+      }
+    } catch (e) {
+      showToast('Error: ' + e.message, 'error');
+    }
+  }
+
+  loadTemplates();
+</script>
+</body>
+</html>

@@ -1,0 +1,31 @@
+{
+  "name": "wa-multi-staff-gateway",
+  "version": "1.0.0",
+  "description": "Self-hosted WhatsApp gateway supporting multiple staff accounts with queue, scheduling, and webhooks",
+  "main": "server-new.js",
+  "scripts": {
+    "start": "node server-new.js"
+  },
+  "keywords": [
+    "whatsapp",
+    "gateway",
+    "whatsapp-web.js",
+    "multi-staff",
+    "wa-gateway",
+    "queue",
+    "webhook"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^17.4.2",
+    "express": "^5.1.0",
+    "express-fileupload": "^1.5.2",
+    "express-rate-limit": "^8.5.2",
+    "mysql2": "^3.15.3",
+    "puppeteer": "^24.30.0",
+    "qrcode": "^1.5.4",
+    "socket.io": "^4.8.1",
+    "whatsapp-web.js": "^1.34.7"
+  }
+}

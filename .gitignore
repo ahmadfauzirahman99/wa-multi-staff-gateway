@@ -1,0 +1,25 @@
+# Dependencies
+node_modules/
+
+# Environment — contains secrets, never commit
+.env
+
+# WhatsApp sessions — contains auth tokens, never commit
+.wwebjs_auth/
+.wwebjs_cache/
+.wa-sessions.json
+
+# Logs
+chats-log.jsonl
+*.log
+logs/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo

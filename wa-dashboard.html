@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard — WA Gateway</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --primary: #2563eb; --primary-h: #1d4ed8;
+      --success: #16a34a; --danger: #dc2626;
+      --bg: #f1f5f9; --surface: #fff;
+      --border: #e2e8f0; --text: #0f172a; --muted: #64748b;
+      --shadow: 0 1px 3px rgba(0,0,0,.07), 0 4px 16px rgba(0,0,0,.05);
+    }
+    body { font-family: 'Inter', system-ui, sans-serif; background: var(--bg); color: var(--text); font-size: 14px; }
+
+    .nav { background: #0f172a; height: 56px; display: flex; align-items: center; padding: 0 24px; gap: 4px; position: sticky; top: 0; z-index: 100; }
+    .nav-brand { color: #f1f5f9; font-weight: 700; font-size: 15px; margin-right: 20px; display: flex; align-items: center; gap: 8px; text-decoration: none; }
+    .nav-dot { width: 8px; height: 8px; background: #25d366; border-radius: 50%; }
+    .nav a { color: #94a3b8; text-decoration: none; font-size: 13px; padding: 6px 10px; border-radius: 6px; transition: all .15s; }
+    .nav a:hover, .nav a.active { color: #f1f5f9; background: rgba(255,255,255,.08); }
+
+    .page { max-width: 800px; margin: 40px auto; padding: 0 20px; }
+    .page-title { font-size: 22px; font-weight: 700; margin-bottom: 4px; }
+    .page-sub { color: var(--muted); font-size: 13px; margin-bottom: 28px; }
+
+    /* Client bar */
+    .client-bar { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px 18px; margin-bottom: 24px; display: flex; align-items: center; justify-content: space-between; box-shadow: var(--shadow); }
+    .client-bar-label { font-size: 13px; color: var(--muted); }
+    .client-list { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+    .client-chip { display: inline-flex; align-items: center; gap: 5px; background: #dcfce7; color: #15803d; border-radius: 20px; padding: 3px 10px; font-size: 11px; font-weight: 600; }
+    .client-chip::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: #16a34a; }
+    .client-empty { font-size: 12px; color: var(--muted); font-style: italic; }
+
+    .btn-sm { display: inline-flex; align-items: center; gap: 5px; padding: 6px 12px; border: none; border-radius: 7px; font-size: 12px; font-weight: 500; cursor: pointer; transition: all .15s; font-family: inherit; }
+    .btn-primary-sm { background: var(--primary); color: #fff; }
+    .btn-primary-sm:hover { background: var(--primary-h); }
+
+    /* Tabs */
+    .tabs { display: flex; gap: 2px; background: #e2e8f0; border-radius: 10px; padding: 3px; margin-bottom: 20px; }
+    .tab { flex: 1; padding: 8px; text-align: center; border-radius: 8px; font-size: 13px; font-weight: 500; color: var(--muted); cursor: pointer; transition: all .15s; border: none; background: transparent; font-family: inherit; }
+    .tab.active { background: var(--surface); color: var(--text); box-shadow: 0 1px 4px rgba(0,0,0,.1); }
+
+    /* Panels */
+    .panel { display: none; }
+    .panel.active { display: block; }
+
+    .card { background: var(--surface); border-radius: 14px; box-shadow: var(--shadow); border: 1px solid var(--border); padding: 24px; }
+    .form-group { margin-bottom: 16px; }
+    .form-label { display: block; font-size: 13px; font-weight: 500; margin-bottom: 6px; }
+    .form-hint { font-size: 11px; color: var(--muted); margin-top: 4px; }
+    .form-input, .form-textarea { width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; font-size: 14px; font-family: inherit; color: var(--text); outline: none; transition: border-color .15s, box-shadow .15s; }
+    .form-input:focus, .form-textarea:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(37,99,235,.1); }
+    .form-textarea { resize: vertical; min-height: 90px; }
+
+    .btn { display: flex; align-items: center; justify-content: center; gap: 6px; padding: 10px 18px; border: none; border-radius: 8px; font-size: 14px; font-weight: 500; cursor: pointer; transition: all .15s; font-family: inherit; width: 100%; }
+    .btn-primary { background: var(--primary); color: #fff; }
+    .btn-primary:hover:not(:disabled) { background: var(--primary-h); }
+    .btn:disabled { opacity: .5; cursor: not-allowed; }
+
+    .status-bar { margin-top: 16px; padding: 11px 14px; border-radius: 8px; font-size: 13px; background: #1e293b; color: #f1f5f9; display: none; }
+    .status-bar.success { background: var(--success); }
+    .status-bar.error { background: var(--danger); }
+
+    /* Broadcast results */
+    .bc-results { margin-top: 14px; font-size: 12px; }
+    .bc-result-item { padding: 6px 10px; border-radius: 6px; margin-bottom: 4px; display: flex; justify-content: space-between; }
+    .bc-result-item.ok { background: #dcfce7; color: #15803d; }
+    .bc-result-item.fail { background: #fee2e2; color: #dc2626; }
+  </style>
+</head>
+<body>
+
+<nav class="nav">
+  <a href="/wa-dashboard.html" class="nav-brand"><span class="nav-dot"></span>WA Gateway</a>
+  <a href="/qr-scanner.html">QR Scanner</a>
+  <a href="/wa-dashboard.html" class="active">Dashboard</a>
+  <a href="/send-text.html">Kirim Teks</a>
+  <a href="/send-media.html">Kirim Media</a>
+  <a href="/wa-clients.html">Clients</a>
+  <a href="/outgoing-dashboard.html">Outgoing</a>
+  <a href="/incoming-dashboard.html">Incoming</a>
+  <a href="/templates.html">Templates</a>
+</nav>
+
+<div class="page">
+  <div class="page-title">Dashboard</div>
+  <div class="page-sub">Kirim pesan, file, atau broadcast ke WhatsApp</div>
+
+  <!-- Client status bar -->
+  <div class="client-bar">
+    <div>
+      <div class="client-bar-label">Client aktif saat ini</div>
+      <div class="client-list" id="clientList"><span class="client-empty">Memuat...</span></div>
+    </div>
+    <button class="btn-sm btn-primary-sm" onclick="loadClients()">↻ Refresh</button>
+  </div>
+
+  <!-- Tabs -->
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('text', this)">Kirim Teks</button>
+    <button class="tab" onclick="switchTab('file', this)">Kirim File</button>
+    <button class="tab" onclick="switchTab('broadcast', this)">Broadcast</button>
+  </div>
+
+  <!-- Panel: Kirim Teks -->
+  <div class="panel active" id="panel-text">
+    <div class="card">
+      <div class="form-group">
+        <label class="form-label">ID Staff</label>
+        <input class="form-input" id="txtId" placeholder="contoh: staff_admin">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Nomor WhatsApp</label>
+        <input class="form-input" id="txtPhone" placeholder="contoh: 62812xxxxxxxx">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Isi Pesan</label>
+        <textarea class="form-textarea" id="txtMsg" placeholder="Tulis pesan di sini..."></textarea>
+      </div>
+      <button class="btn btn-primary" id="btnText" onclick="sendText()">Kirim Teks</button>
+      <div class="status-bar" id="statusText"></div>
+    </div>
+  </div>
+
+  <!-- Panel: Kirim File -->
+  <div class="panel" id="panel-file">
+    <div class="card">
+      <div class="form-group">
+        <label class="form-label">ID Staff</label>
+        <input class="form-input" id="fileId" placeholder="contoh: staff_admin">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Nomor WhatsApp</label>
+        <input class="form-input" id="filePhone" placeholder="contoh: 62812xxxxxxxx">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Pilih File</label>
+        <input class="form-input" type="file" id="fileInput" style="padding:7px 12px;">
+      </div>
+      <button class="btn btn-primary" id="btnFile" onclick="sendFile()">Kirim File</button>
+      <div class="status-bar" id="statusFile"></div>
+    </div>
+  </div>
+
+  <!-- Panel: Broadcast -->
+  <div class="panel" id="panel-broadcast">
+    <div class="card">
+      <div class="form-group">
+        <label class="form-label">ID Staff</label>
+        <input class="form-input" id="bcId" placeholder="contoh: staff_admin">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Daftar Nomor</label>
+        <textarea class="form-textarea" id="bcPhones" placeholder="Satu nomor per baris atau pisahkan koma&#10;62812xxxxxxx&#10;62853xxxxxxx"></textarea>
+        <div class="form-hint">Format 628xxx, bisa baris baru atau koma</div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Isi Pesan</label>
+        <textarea class="form-textarea" id="bcMsg" placeholder="Pesan broadcast..."></textarea>
+      </div>
+      <button class="btn btn-primary" id="btnBc" onclick="sendBroadcast()">Kirim Broadcast</button>
+      <div class="status-bar" id="statusBc"></div>
+      <div class="bc-results" id="bcResults"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+  function switchTab(name, el) {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    el.classList.add('active');
+    document.getElementById('panel-' + name).classList.add('active');
+  }
+
+  function showStatus(id, text, type = '') {
+    const bar = document.getElementById(id);
+    bar.style.display = 'block';
+    bar.className = 'status-bar' + (type ? ' ' + type : '');
+    bar.textContent = text;
+  }
+
+  async function loadClients() {
+    try {
+      const res = await fetch('/api/clients');
+      const data = await res.json();
+      const el = document.getElementById('clientList');
+      if (!data.success || !data.clients.length) {
+        el.innerHTML = '<span class="client-empty">Tidak ada client aktif — <a href="/qr-scanner.html">Connect sekarang</a></span>';
+        return;
+      }
+      el.innerHTML = data.clients.map(c => `<span class="client-chip">${c.id}</span>`).join('');
+    } catch(e) {}
+  }
+
+  async function sendText() {
+    const id = document.getElementById('txtId').value.trim();
+    const phone = document.getElementById('txtPhone').value.trim();
+    const message = document.getElementById('txtMsg').value.trim();
+    const btn = document.getElementById('btnText');
+    if (!id || !phone || !message) { showStatus('statusText', 'ID, nomor, dan pesan wajib diisi', 'error'); return; }
+    btn.disabled = true;
+    showStatus('statusText', 'Mengirim...');
+    try {
+      const res = await fetch('/api/send-text', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, phone, message }) });
+      const d = await res.json();
+      if (res.ok && d.success) showStatus('statusText', 'Berhasil dikirim — ID: ' + (d.messageId || '-'), 'success');
+      else showStatus('statusText', 'Gagal: ' + (d.message || d.error || 'unknown'), 'error');
+    } catch(e) { showStatus('statusText', 'Error: ' + e.message, 'error'); }
+    finally { btn.disabled = false; }
+  }
+
+  async function sendFile() {
+    const id = document.getElementById('fileId').value.trim();
+    const phone = document.getElementById('filePhone').value.trim();
+    const fileEl = document.getElementById('fileInput');
+    const btn = document.getElementById('btnFile');
+    if (!id || !phone) { showStatus('statusFile', 'ID Staff dan nomor wajib diisi', 'error'); return; }
+    if (!fileEl.files || !fileEl.files.length) { showStatus('statusFile', 'File belum dipilih', 'error'); return; }
+    const file = fileEl.files[0];
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      let base64 = e.target.result;
+      if (base64.startsWith('data:')) base64 = base64.split(',')[1];
+      btn.disabled = true;
+      showStatus('statusFile', 'Mengirim file...');
+      try {
+        const res = await fetch('/api/send-media', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, phone, filename: file.name, fileData: base64 }) });
+        const d = await res.json();
+        if (res.ok && d.success) showStatus('statusFile', 'File berhasil dikirim', 'success');
+        else showStatus('statusFile', 'Gagal: ' + (d.error || d.message || 'unknown'), 'error');
+      } catch(e) { showStatus('statusFile', 'Error: ' + e.message, 'error'); }
+      finally { btn.disabled = false; }
+    };
+    showStatus('statusFile', 'Membaca file...');
+    reader.readAsDataURL(file);
+  }
+
+  async function sendBroadcast() {
+    const id = document.getElementById('bcId').value.trim();
+    const raw = document.getElementById('bcPhones').value;
+    const message = document.getElementById('bcMsg').value.trim();
+    const btn = document.getElementById('btnBc');
+    if (!id || !raw || !message) { showStatus('statusBc', 'Semua field wajib diisi', 'error'); return; }
+    const phones = raw.split(/[\n,;]+/).map(s => s.trim()).filter(Boolean);
+    if (!phones.length) { showStatus('statusBc', 'Daftar nomor tidak valid', 'error'); return; }
+    btn.disabled = true;
+    showStatus('statusBc', 'Mengirim ke ' + phones.length + ' nomor...');
+    document.getElementById('bcResults').innerHTML = '';
+    try {
+      const res = await fetch('/api/broadcast-text', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, message, phones }) });
+      const d = await res.json();
+      if (res.ok && d.success) {
+        const ok = d.results.filter(r => r.success).length;
+        const fail = d.results.length - ok;
+        showStatus('statusBc', 'Selesai — Berhasil: ' + ok + ' | Gagal: ' + fail, ok ? 'success' : 'error');
+        document.getElementById('bcResults').innerHTML = d.results.map(r =>
+          `<div class="bc-result-item ${r.success ? 'ok' : 'fail'}">
+            <span>${r.phone}</span>
+            <span>${r.success ? '✓ Terkirim' : '✗ ' + (r.error || 'Gagal')}</span>
+          </div>`
+        ).join('');
+      } else {
+        showStatus('statusBc', 'Gagal: ' + (d.message || 'unknown'), 'error');
+      }
+    } catch(e) { showStatus('statusBc', 'Error: ' + e.message, 'error'); }
+    finally { btn.disabled = false; }
+  }
+
+  loadClients();
+</script>
+</body>
+</html>

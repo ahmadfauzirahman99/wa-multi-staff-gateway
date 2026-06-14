@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Incoming Messages — WA Gateway</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --primary: #2563eb; --primary-h: #1d4ed8;
+      --success: #16a34a; --danger: #dc2626;
+      --bg: #f1f5f9; --surface: #fff;
+      --border: #e2e8f0; --text: #0f172a; --muted: #64748b;
+      --shadow: 0 1px 3px rgba(0,0,0,.07), 0 4px 16px rgba(0,0,0,.05);
+    }
+    body { font-family: 'Inter', system-ui, sans-serif; background: var(--bg); color: var(--text); font-size: 14px; }
+
+    .nav { background: #0f172a; height: 56px; display: flex; align-items: center; padding: 0 24px; gap: 4px; position: sticky; top: 0; z-index: 100; overflow-x: auto; }
+    .nav-brand { color: #f1f5f9; font-weight: 700; font-size: 15px; margin-right: 20px; display: flex; align-items: center; gap: 8px; text-decoration: none; white-space: nowrap; }
+    .nav-dot { width: 8px; height: 8px; background: #25d366; border-radius: 50%; flex-shrink: 0; }
+    .nav a { color: #94a3b8; text-decoration: none; font-size: 13px; padding: 6px 10px; border-radius: 6px; transition: all .15s; white-space: nowrap; }
+    .nav a:hover, .nav a.active { color: #f1f5f9; background: rgba(255,255,255,.08); }
+
+    .page { max-width: 1100px; margin: 32px auto; padding: 0 20px; }
+    .page-header { display: flex; align-items: flex-end; justify-content: space-between; margin-bottom: 20px; flex-wrap: wrap; gap: 12px; }
+    .page-title { font-size: 22px; font-weight: 700; }
+    .page-sub { color: var(--muted); font-size: 13px; margin-top: 2px; }
+
+    .filters { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px 18px; margin-bottom: 16px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; box-shadow: var(--shadow); }
+    .form-input-sm { padding: 7px 10px; border: 1px solid var(--border); border-radius: 7px; font-size: 13px; font-family: inherit; color: var(--text); outline: none; transition: border-color .15s; }
+    .form-input-sm:focus { border-color: var(--primary); }
+    .form-select-sm { padding: 7px 10px; border: 1px solid var(--border); border-radius: 7px; font-size: 13px; font-family: inherit; color: var(--text); background: var(--surface); outline: none; }
+    .btn-sm { display: inline-flex; align-items: center; gap: 5px; padding: 7px 14px; border: none; border-radius: 7px; font-size: 12px; font-weight: 500; cursor: pointer; transition: all .15s; font-family: inherit; }
+    .btn-primary-sm { background: var(--primary); color: #fff; }
+    .btn-primary-sm:hover { background: var(--primary-h); }
+    .btn-outline-sm { background: transparent; border: 1px solid var(--border); color: var(--text); }
+    .btn-outline-sm:hover { background: var(--bg); }
+    .filter-sep { height: 28px; width: 1px; background: var(--border); }
+
+    .card { background: var(--surface); border-radius: 14px; box-shadow: var(--shadow); border: 1px solid var(--border); overflow: hidden; }
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th { background: #f8fafc; font-weight: 600; color: var(--muted); text-transform: uppercase; font-size: 11px; letter-spacing: .05em; padding: 10px 14px; text-align: left; border-bottom: 1px solid var(--border); white-space: nowrap; }
+    td { padding: 10px 14px; border-bottom: 1px solid #f1f5f9; vertical-align: middle; }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: #fafbff; }
+
+    .msg-cell { max-width: 300px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .time-cell { font-size: 12px; color: var(--muted); white-space: nowrap; }
+    .badge-media { background: #fef3c7; color: #92400e; border-radius: 4px; padding: 1px 7px; font-size: 10px; font-weight: 600; }
+    .badge-text  { background: #f1f5f9; color: var(--muted); border-radius: 4px; padding: 1px 7px; font-size: 10px; font-weight: 600; }
+    .new-row { animation: highlight .8s ease; }
+    @keyframes highlight { from { background: #eff6ff; } to { background: transparent; } }
+
+    .table-footer { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border-top: 1px solid var(--border); flex-wrap: wrap; gap: 10px; }
+    .total-info { font-size: 12px; color: var(--muted); }
+    .pagination { display: flex; gap: 4px; align-items: center; }
+    .page-btn { padding: 5px 10px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); font-size: 12px; cursor: pointer; font-family: inherit; transition: all .15s; }
+    .page-btn:hover:not(:disabled) { border-color: var(--primary); color: var(--primary); }
+    .page-btn:disabled { opacity: .4; cursor: default; }
+    .page-info { font-size: 12px; color: var(--muted); padding: 0 4px; }
+
+    .realtime-dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: #22c55e; margin-right: 4px; animation: pulse 2s infinite; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+    .last-update { font-size: 11px; color: var(--muted); }
+  </style>
+</head>
+<body>
+
+<nav class="nav">
+  <a href="/wa-dashboard.html" class="nav-brand"><span class="nav-dot"></span>WA Gateway</a>
+  <a href="/qr-scanner.html">QR Scanner</a>
+  <a href="/wa-dashboard.html">Dashboard</a>
+  <a href="/send-text.html">Kirim Teks</a>
+  <a href="/send-media.html">Kirim Media</a>
+  <a href="/wa-clients.html">Clients</a>
+  <a href="/outgoing-dashboard.html">Outgoing</a>
+  <a href="/incoming-dashboard.html" class="active">Incoming</a>
+  <a href="/templates.html">Templates</a>
+</nav>
+
+<div class="page">
+  <div class="page-header">
+    <div>
+      <div class="page-title">Incoming Messages</div>
+      <div class="page-sub"><span class="realtime-dot"></span>Pesan masuk realtime dari semua staff</div>
+    </div>
+    <div class="last-update" id="lastUpdate">—</div>
+  </div>
+
+  <div class="filters">
+    <input class="form-input-sm" id="fStaff"  placeholder="Filter staff ID" style="width:150px;">
+    <input class="form-input-sm" id="fNumber" placeholder="Filter dari nomor" style="width:170px;">
+    <input class="form-input-sm" id="fText"   placeholder="Cari isi pesan" style="width:200px;">
+    <div class="filter-sep"></div>
+    <button class="btn-sm btn-primary-sm" onclick="onFilter()">Filter</button>
+    <button class="btn-sm btn-outline-sm"  onclick="clearFilter()">Reset</button>
+    <div class="filter-sep"></div>
+    <span style="font-size:12px;color:var(--muted);">Rows:</span>
+    <select class="form-select-sm" id="pageSize" onchange="onPageSizeChange()" style="width:70px;">
+      <option>10</option><option value="20" selected>20</option><option>50</option><option>100</option>
+    </select>
+    <button class="btn-sm btn-outline-sm" onclick="reloadData()">↻ Reload</button>
+  </div>
+
+  <div class="card">
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th style="width:50px;">ID</th>
+            <th style="width:110px;">Staff</th>
+            <th style="width:130px;">Dari Nomor</th>
+            <th>Isi Pesan</th>
+            <th style="width:70px;">Tipe</th>
+            <th style="width:160px;">Waktu (WIB)</th>
+          </tr>
+        </thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+    <div class="table-footer">
+      <div class="total-info" id="totalInfo">—</div>
+      <div class="pagination" id="pagination"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const socket = io('/');
+  let dataCache = [];
+  let currentPage = 1;
+  let rowsPerPage = 20;
+
+  function fmtWIB(utc) {
+    if (!utc) return '—';
+    try {
+      const d = new Date(utc.endsWith('Z') ? utc : utc + 'Z');
+      return d.toLocaleString('id-ID', {
+        year: 'numeric', month: '2-digit', day: '2-digit',
+        hour: '2-digit', minute: '2-digit', second: '2-digit',
+        hour12: false, timeZone: 'Asia/Jakarta'
+      }).replace(', ', ' ');
+    } catch { return utc.slice(0,19).replace('T',' '); }
+  }
+
+  function getFilters() {
+    return {
+      staff:  document.getElementById('fStaff').value.trim().toLowerCase(),
+      number: document.getElementById('fNumber').value.trim(),
+      text:   document.getElementById('fText').value.trim().toLowerCase(),
+    };
+  }
+
+  function onFilter()       { currentPage = 1; render(); }
+  function onPageSizeChange() {
+    rowsPerPage = parseInt(document.getElementById('pageSize').value) || 20;
+    currentPage = 1; render();
+  }
+  function clearFilter() {
+    ['fStaff','fNumber','fText'].forEach(id => document.getElementById(id).value = '');
+    currentPage = 1; render();
+  }
+
+  function render() {
+    const { staff, number, text } = getFilters();
+    let filtered = dataCache.filter(r => {
+      if (staff  && !(r.staff_id || '').toLowerCase().includes(staff)) return false;
+      if (number && !(r.from_number || '').includes(number)) return false;
+      if (text   && !(r.body || '').toLowerCase().includes(text)) return false;
+      return true;
+    });
+
+    const total = filtered.length;
+    const pages = Math.ceil(total / rowsPerPage) || 1;
+    if (currentPage > pages) currentPage = pages;
+    const rows = filtered.slice((currentPage-1)*rowsPerPage, currentPage*rowsPerPage);
+
+    const tbody = document.getElementById('tbody');
+    if (!rows.length) {
+      tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:32px;">Tidak ada data</td></tr>';
+    } else {
+      tbody.innerHTML = rows.map(r => `
+        <tr>
+          <td style="color:var(--muted);font-size:12px;">${r.id}</td>
+          <td>${r.staff_id}</td>
+          <td>${r.from_number}</td>
+          <td class="msg-cell" title="${(r.body||'').replace(/"/g,'&quot;')}">${r.body || '<i style="color:var(--muted)">—</i>'}</td>
+          <td><span class="${r.has_media ? 'badge-media' : 'badge-text'}">${r.msg_type || 'chat'}</span></td>
+          <td class="time-cell">${fmtWIB(r.created_at)}</td>
+        </tr>
+      `).join('');
+    }
+
+    document.getElementById('totalInfo').textContent = `${total} baris | Hal. ${currentPage}/${pages}`;
+
+    const pg = document.getElementById('pagination');
+    const prev = document.createElement('button');
+    prev.className = 'page-btn'; prev.textContent = '← Prev'; prev.disabled = currentPage <= 1;
+    prev.onclick = () => { currentPage--; render(); };
+    const info = document.createElement('span');
+    info.className = 'page-info'; info.textContent = currentPage + ' / ' + pages;
+    const next = document.createElement('button');
+    next.className = 'page-btn'; next.textContent = 'Next →'; next.disabled = currentPage >= pages;
+    next.onclick = () => { currentPage++; render(); };
+    pg.innerHTML = ''; pg.append(prev, info, next);
+    document.getElementById('lastUpdate').textContent = 'Update: ' + new Date().toLocaleTimeString('id-ID');
+  }
+
+  async function reloadData() {
+    try {
+      const res = await fetch('/api/incoming?limit=500');
+      const json = await res.json();
+      if (!json.success) return;
+      dataCache = json.data || [];
+      currentPage = 1; render();
+    } catch {}
+  }
+
+  socket.on('wa-new-incoming', (row) => {
+    dataCache.unshift({ ...row, id: '—', created_at: new Date().toISOString() });
+    if (dataCache.length > 500) dataCache.pop();
+    render();
+    // highlight first row
+    const firstRow = document.getElementById('tbody').querySelector('tr');
+    if (firstRow) firstRow.classList.add('new-row');
+  });
+
+  reloadData();
+</script>
+</body>
+</html>
